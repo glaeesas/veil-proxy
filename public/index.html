@@ -25,7 +25,7 @@
           <path d="M4 12h16"></path>
         </svg>
       </span>
-      <span class="brand-name">Veil</span>
+      <span class="brand-name" id="brand-name">Veil</span>
     </a>
 
     <div class="topbar-actions">
@@ -38,7 +38,7 @@
           <circle cx="12" cy="12" r="3.2"></circle>
           <path d="M19.4 15a1.7 1.7 0 0 0 .3 1.9l.1.1a2 2 0 1 1-2.8 2.8l-.1-.1a1.7 1.7 0 0 0-2.9 1.2 2 2 0 1 1-4 0 1.7 1.7 0 0 0-2.9-1.2l-.1.1a2 2 0 1 1-2.8-2.8l.1-.1A1.7 1.7 0 0 0 3 15a2 2 0 1 1 0-4 1.7 1.7 0 0 0 1.4-2.9l-.1-.1a2 2 0 1 1 2.8-2.8l.1.1A1.7 1.7 0 0 0 10 4a2 2 0 1 1 4 0 1.7 1.7 0 0 0 2.9 1.4l.1-.1a2 2 0 1 1 2.8 2.8l-.1.1A1.7 1.7 0 0 0 21 11a2 2 0 1 1 0 4 1.7 1.7 0 0 0-1.6 0z"></path>
         </svg>
-        <span class="icon-btn-label">Theme</span>
+        <span class="icon-btn-label">Settings</span>
       </button>
     </div>
   </header>
@@ -111,7 +111,7 @@
       <article class="feature">
         <span class="feature-icon">✦</span>
         <h2>Twelve themes</h2>
-        <p>Pick a palette from the theme drawer. Your choice is remembered per browser.</p>
+        <p>Pick a palette in settings. Your choice is remembered per browser.</p>
       </article>
     </section>
   </main>
@@ -122,21 +122,49 @@
   </footer>
 
   <div class="scrim" id="scrim" hidden></div>
-  <aside class="drawer" id="theme-panel" role="dialog" aria-label="Theme picker" aria-modal="true" hidden>
+  <aside class="drawer" id="theme-panel" role="dialog" aria-label="Settings" aria-modal="true" hidden>
     <div class="drawer-head">
-      <h2>Appearance</h2>
-      <button class="icon-btn ghost" id="theme-close" type="button" aria-label="Close theme picker">
+      <h2>Settings</h2>
+      <button class="icon-btn ghost" id="theme-close" type="button" aria-label="Close settings">
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round">
           <path d="M6 6l12 12"></path><path d="M18 6L6 18"></path>
         </svg>
       </button>
     </div>
-    <p class="drawer-sub">Twelve hand-tuned palettes. Pick one — it sticks.</p>
-    <div class="theme-grid" id="theme-grid"></div>
-    <button class="chip" id="guard-toggle" type="button" aria-pressed="true"
-            style="margin-top:22px" aria-label="Toggle confirm before closing">
-      <span class="chip-glyph">◈</span> Confirm before closing: <strong id="guard-state">On</strong>
-    </button>
+
+    <section class="setting-group">
+      <h3>Theme</h3>
+      <p class="drawer-sub">Twelve hand-tuned palettes. Pick one — it sticks.</p>
+      <div class="theme-grid" id="theme-grid"></div>
+    </section>
+
+    <section class="setting-group">
+      <h3>Search engine</h3>
+      <select class="field" id="engine-select" aria-label="Search engine"></select>
+      <p class="hint">Used when you type a query instead of an address.</p>
+    </section>
+
+    <section class="setting-group">
+      <h3>Title</h3>
+      <input class="field" id="title-input" type="text" spellcheck="false"
+             placeholder="Veil — browse through the veil" aria-label="Page title">
+      <p class="hint">Sets the tab title and the name in the top bar.</p>
+    </section>
+
+    <section class="setting-group">
+      <h3>Wisp server</h3>
+      <input class="field" id="wisp-input" type="text" spellcheck="false"
+             placeholder="wss://wisp.example.com/" aria-label="Wisp server">
+      <p class="hint">Saved for clients that talk to a Wisp relay. The default server-side fetch does not use it.</p>
+    </section>
+
+    <section class="setting-group">
+      <h3>Guard</h3>
+      <button class="chip" id="guard-toggle" type="button" aria-pressed="true"
+              aria-label="Toggle confirm before closing">
+        <span class="chip-glyph">◈</span> Confirm before closing: <strong id="guard-state">On</strong>
+      </button>
+    </section>
   </aside>
 
   <script src="/app.js" type="module"></script>

@@ -13,7 +13,26 @@ const THEMES = [
   { id: 'terminal', name: 'Terminal', tag: 'dark', colors: ['#020602', '#4ade80', '#86efac'] },
 ];
 
-const STORE = { theme: 'veil.theme', recent: 'veil.recent' };
+// Plain-HTML engines only: a JavaScript-only results page renders blank through
+// a rewriting proxy, which is exactly why duckduckgo.com/?q= came up black.
+const ENGINES = [
+  { id: 'ddg-html', name: 'DuckDuckGo', url: 'https://html.duckduckgo.com/html/?q=' },
+  { id: 'ddg-lite', name: 'DuckDuckGo Lite', url: 'https://lite.duckduckgo.com/lite/?q=' },
+  { id: 'bing', name: 'Bing', url: 'https://www.bing.com/search?q=' },
+  { id: 'startpage', name: 'Startpage', url: 'https://www.startpage.com/sp/search?query=' },
+  { id: 'brave', name: 'Brave Search', url: 'https://search.brave.com/search?q=' },
+  { id: 'google', name: 'Google', url: 'https://www.google.com/search?q=' },
+];
+
+const STORE = {
+  theme: 'veil.theme',
+  recent: 'veil.recent',
+  engine: 'veil.engine',
+  title: 'veil.title',
+  wisp: 'veil.wisp',
+};
+const DEFAULT_TITLE = 'Veil — browse through the veil';
+
 const root = document.documentElement;
 const panel = document.getElementById('theme-panel');
 const scrim = document.getElementById('scrim');
@@ -24,6 +43,51 @@ const recentWrap = document.getElementById('recent');
 const recentList = document.getElementById('recent-list');
 const guardBtn = document.getElementById('guard-toggle');
 const guardState = document.getElementById('guard-state');
+const engineSelect = document.getElementById('engine-select');
+const titleInput = document.getElementById('title-input');
+const wispInput = document.getElementById('wisp-input');
+const brandName = document.getElementById('brand-name');
+
+/* --------------------------------------------------------------- storage */
+
+function readSetting(key, fallback) {
+  try {
+    const value = localStorage.getItem(key);
+    return value === null ? fallback : value;
+  } catch {
+    return fallback;
+  }
+}
+
+function writeSetting(key, value) {
+  try { localStorage.setItem(key, value); } catch { /* storage may be blocked */ }
+}
+
+/* ---------------------------------------------------- opaque proxy paths */
+
+// Destinations are base64url-encoded into the path, so the address bar and the
+// browser's hover preview never spell out where a link goes.
+function encodeTarget(url) {
+  const bytes = new TextEncoder().encode(url);
+  let binary = '';
+  for (const byte of bytes) binary += String.fromCharCode(byte);
+  return btoa(binary).replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/, '');
+}
+
+function proxyHref(url) {
+  return `/__p/${encodeTarget(url)}`;
+}
+
+// Static markup carries readable /__p/https://… links for source readability;
+// swap them for opaque ones before the user can hover anything.
+function encodeLinks() {
+  for (const link of document.querySelectorAll('a[href^="/__p/"]')) {
+    const raw = link.getAttribute('href').slice('/__p/'.length);
+    if (!/^https?:\/\//i.test(raw)) continue;
+    link.dataset.target = raw;
+    link.setAttribute('href', proxyHref(raw));
+  }
+}
 
 /* ------------------------------------------------------------ anti-close */
 
@@ -47,8 +111,8 @@ function renderGuard() {
 window.addEventListener('beforeunload', (event) => {
   if (!guardEnabled() || internalNav) return undefined;
   event.preventDefault();
-  event.returnValue = 'Leave Veil?';
-  return 'Leave Veil?';
+  event.returnValue = 'Leave site?';
+  return 'Leave site?';
 });
 
 document.addEventListener(
@@ -71,9 +135,7 @@ function applyTheme(id, persist = true) {
   for (const card of grid.children) {
     card.setAttribute('aria-pressed', String(card.dataset.theme === theme.id));
   }
-  if (persist) {
-    try { localStorage.setItem(STORE.theme, theme.id); } catch { /* storage may be blocked */ }
-  }
+  if (persist) writeSetting(STORE.theme, theme.id);
   return theme.id;
 }
 
@@ -128,6 +190,14 @@ function remember(target) {
   try { localStorage.setItem(STORE.recent, JSON.stringify(next)); } catch { /* ignore */ }
 }
 
+function labelFor(target) {
+  try {
+    return new URL(target).hostname.replace(/^www\./, '');
+  } catch {
+    return 'recent';
+  }
+}
+
 function renderRecent() {
   const items = readRecent();
   recentList.textContent = '';
@@ -135,17 +205,52 @@ function renderRecent() {
   for (const item of items) {
     const link = document.createElement('a');
     link.className = 'recent-item';
-    link.href = `/__p/${item}`;
-    link.textContent = item.replace(/^https?:\/\//, '').replace(/\/$/, '');
-    link.title = item;
+    link.href = proxyHref(item);
+    link.dataset.target = item;
+    link.textContent = labelFor(item);
     recentList.appendChild(link);
   }
+}
+
+/* ------------------------------------------------------------- settings */
+
+function engineTemplate() {
+  const id = readSetting(STORE.engine, ENGINES[0].id);
+  return (ENGINES.find((engine) => engine.id === id) || ENGINES[0]).url;
+}
+
+function applyTitle(value) {
+  const title = String(value || '').trim();
+  document.title = title || DEFAULT_TITLE;
+  brandName.textContent = (title.split(/[—–|]/)[0] || 'Veil').trim() || 'Veil';
+}
+
+function buildSettings() {
+  const fragment = document.createDocumentFragment();
+  for (const engine of ENGINES) {
+    const option = document.createElement('option');
+    option.value = engine.id;
+    option.textContent = engine.name;
+    fragment.appendChild(option);
+  }
+  engineSelect.appendChild(fragment);
+
+  engineSelect.value = readSetting(STORE.engine, ENGINES[0].id);
+  titleInput.value = readSetting(STORE.title, '');
+  wispInput.value = readSetting(STORE.wisp, '');
+  applyTitle(titleInput.value);
+
+  engineSelect.addEventListener('change', () => writeSetting(STORE.engine, engineSelect.value));
+  titleInput.addEventListener('input', () => {
+    writeSetting(STORE.title, titleInput.value);
+    applyTitle(titleInput.value);
+  });
+  wispInput.addEventListener('input', () => writeSetting(STORE.wisp, wispInput.value.trim()));
 }
 
 /* ------------------------------------------------------------- resolve */
 
 const DOMAIN = /^(?:[a-z0-9](?:[a-z0-9-]*[a-z0-9])?\.)+[a-z]{2,}(?::\d+)?(?:\/\S*)?$/i;
-const SEARCH = 'https://duckduckgo.com/?q=';
 
 function resolve(input) {
   const value = input.trim();
@@ -153,7 +258,7 @@ function resolve(input) {
   if (/^https?:\/\//i.test(value)) return value;
   if (/^[a-z]+:\/\//i.test(value)) return null;
   if (DOMAIN.test(value) || /^localhost(?::\d+)?(\/|$)/.test(value)) return `https://${value}`;
-  return SEARCH + encodeURIComponent(value);
+  return engineTemplate() + encodeURIComponent(value);
 }
 
 omnibox.addEventListener('submit', (event) => {
@@ -165,7 +270,7 @@ omnibox.addEventListener('submit', (event) => {
   }
   remember(target);
   internalNav = true;
-  location.href = `/__p/${target}`;
+  location.href = proxyHref(target);
 });
 
 /* ---------------------------------------------------------------- wiring */
@@ -184,8 +289,15 @@ document.addEventListener('keydown', (event) => {
   }
 });
 
+guardBtn.addEventListener('click', () => {
+  setGuard(!guardEnabled());
+  renderGuard();
+});
+
 document.querySelectorAll('.chip').forEach((chip) => {
-  chip.addEventListener('click', () => remember(chip.href.replace('/__p/', '')));
+  chip.addEventListener('click', () => {
+    if (chip.dataset.target) remember(chip.dataset.target);
+  });
 });
 
 fetch('/healthz')
@@ -196,15 +308,10 @@ fetch('/healthz')
     document.getElementById('status-text').textContent = 'offline';
   });
 
-guardBtn.addEventListener('click', () => {
-  setGuard(!guardEnabled());
-  renderGuard();
-});
-
-let saved = null;
-try { saved = localStorage.getItem(STORE.theme); } catch { /* ignore */ }
+encodeLinks();
 buildThemeGrid();
-applyTheme(saved || 'midnight', false);
+buildSettings();
+applyTheme(readSetting(STORE.theme, 'midnight'), false);
 renderGuard();
 renderRecent();
 address.focus({ preventScroll: true });
