@@ -110,7 +110,7 @@
     if (typeof nav.reload === 'function') {
       var nativeReload = nav.reload;
       nav.reload = function (options) {
-        if (window.__veilInternalNav) window.__veilInternalNav();
+        window.__veilInternalNav && window.__veilInternalNav();
         return nativeReload.call(nav, options);
       };
     }
@@ -145,10 +145,8 @@
   );
 
   // --- anti-close guard --------------------------------------------------
-  // Closing or reloading the tab raises the browser's own "Leave site?" prompt.
-  // That dialog is native: the page cannot draw, reword or suppress it, it just
-  // asks for confirmation via beforeunload. In-proxy navigation is exempt so
-  // browsing does not prompt on every link.
+  // Closing the tab, reloading or navigating away asks for confirmation.
+  // In-proxy navigation is exempt so browsing does not prompt on every link.
   var GUARD_KEY = 'veil.anticlose';
 
   function guardEnabled() {
@@ -167,11 +165,9 @@
 
   window.addEventListener('beforeunload', function (event) {
     if (!guardEnabled() || internalNav) return undefined;
-    // Chrome shows its own "Leave site? / Changes you made may not be saved."
-    // panel for this; the string is ignored by every modern browser.
     event.preventDefault();
-    event.returnValue = 'Leave site?';
-    return 'Leave site?';
+    event.returnValue = 'Leave Veil?';
+    return 'Leave Veil?';
   });
 
   document.addEventListener(
@@ -219,6 +215,7 @@
       shield: '<path d="M12 4l7 3v5c0 4.2-2.9 7.4-7 8-4.1-.6-7-3.8-7-8V7z"/><path d="M9.2 12.2l2 2 3.6-3.9"/>',
       home: '<path d="M4 11l8-7 8 7"/><path d="M6.5 9.5V19h11V9.5"/>',
       reload: '<path d="M20 12a8 8 0 1 1-2.6-5.9"/><path d="M20 4v4.5h-4.5"/>',
+      bug: '<circle cx="12" cy="13" r="4.1"/><path d="M8.4 13H4M20 13h-3.9M9.3 10L6.6 7.4M14.7 10l2.7-2.6M9.3 16L6.6 18.6M14.7 16l2.7 2.6M12 8.9V4.4"/>',
       hide: '<path d="M6 6l12 12"/><path d="M18 6L6 18"/>',
     };
 
@@ -251,6 +248,11 @@
       button('reload', 'Reload', function () {
         window.__veilInternalNav();
         location.reload();
+      }),
+    );
+    bar.appendChild(
+      button('bug', 'DevTools (Ctrl+Alt+D)', function () {
+        if (window.__veilDebug) window.__veilDebug.toggle();
       }),
     );
     bar.appendChild(document.createElement('span')).className = 'sep';
