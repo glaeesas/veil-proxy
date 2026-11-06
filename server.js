@@ -46,7 +46,7 @@ const server = createServer(async (req, res) => {
     const ext = extname(file).toLowerCase();
     res.writeHead(200, {
       'content-type': MIME[ext] || 'application/octet-stream',
-      'cache-control': relative.endsWith('shim.js') ? 'no-cache' : 'public, max-age=300',
+      'cache-control': 'no-cache',
       'x-content-type-options': 'nosniff',
     });
     res.end(body);
