@@ -1,0 +1,14 @@
+# Render blueprint: connect this repo at https://render.com -> New -> Blueprint.
+# Gives the proxy a permanent public URL that keeps running after Codespaces stops.
+services:
+  - type: web
+    name: veil-proxy
+    runtime: docker
+    plan: free
+    region: oregon
+    dockerfilePath: ./Dockerfile
+    healthCheckPath: /healthz
+    autoDeploy: true
+    envVars:
+      - key: PORT
+        value: 3000

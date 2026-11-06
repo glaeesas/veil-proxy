@@ -98,8 +98,10 @@
   );
 
   // --- anti-close guard --------------------------------------------------
-  // Closing the tab, reloading or navigating away asks for confirmation.
-  // In-proxy navigation is exempt so browsing does not prompt on every link.
+  // Closing or reloading the tab raises the browser's own "Leave site?" prompt.
+  // That dialog is native: the page cannot draw, reword or suppress it, it just
+  // asks for confirmation via beforeunload. In-proxy navigation is exempt so
+  // browsing does not prompt on every link.
   var GUARD_KEY = 'veil.anticlose';
 
   function guardEnabled() {
@@ -118,9 +120,11 @@
 
   window.addEventListener('beforeunload', function (event) {
     if (!guardEnabled() || internalNav) return undefined;
+    // Chrome shows its own "Leave site? / Changes you made may not be saved."
+    // panel for this; the string is ignored by every modern browser.
     event.preventDefault();
-    event.returnValue = 'Leave Veil?';
-    return 'Leave Veil?';
+    event.returnValue = 'Leave site?';
+    return 'Leave site?';
   });
 
   document.addEventListener(
@@ -134,45 +138,6 @@
     },
     true,
   );
-
-  function confirmLeave(onLeave) {
-    if (!guardEnabled()) { onLeave(); return; }
-    var wrap = document.createElement('div');
-    wrap.style.cssText =
-      'all:initial;position:fixed;inset:0;z-index:2147483647;display:grid;place-items:center;' +
-      'background:rgba(6,4,12,.58);backdrop-filter:blur(6px)';
-    var card = document.createElement('div');
-    card.style.cssText =
-      'all:initial;display:block;width:min(350px,86vw);padding:22px;border-radius:18px;' +
-      'background:#120c1e;border:1px solid rgba(255,255,255,.14);box-shadow:0 24px 60px rgba(0,0,0,.55);' +
-      'font:14px/1.55 ui-sans-serif,system-ui,-apple-system,"Segoe UI",Roboto,sans-serif;color:#f2eaff';
-    card.innerHTML =
-      '<div style="font:600 15.5px ui-sans-serif,system-ui,sans-serif;color:#f9f5ff;margin-bottom:6px">Leave this page?</div>' +
-      '<div style="color:#b6a9cf;margin-bottom:18px">The anti-close guard is on. You will lose this page.</div>';
-    var row = document.createElement('div');
-    row.style.cssText = 'display:flex;gap:8px;justify-content:flex-end';
-    var cancel = document.createElement('button');
-    cancel.type = 'button';
-    cancel.textContent = 'Stay';
-    cancel.style.cssText =
-      'all:unset;cursor:pointer;padding:9px 16px;border-radius:10px;background:rgba(255,255,255,.09);' +
-      'color:#e8e0f8;font:600 13px ui-sans-serif,system-ui,sans-serif';
-    var leave = document.createElement('button');
-    leave.type = 'button';
-    leave.textContent = 'Leave';
-    leave.style.cssText =
-      'all:unset;cursor:pointer;padding:9px 16px;border-radius:10px;' +
-      'background:linear-gradient(135deg,#c084fc,#22d3ee);color:#0a0712;font:700 13px ui-sans-serif,system-ui,sans-serif';
-    cancel.addEventListener('click', function () { wrap.remove(); });
-    leave.addEventListener('click', function () { wrap.remove(); onLeave(); });
-    wrap.addEventListener('click', function (event) { if (event.target === wrap) wrap.remove(); });
-    row.appendChild(cancel);
-    row.appendChild(leave);
-    card.appendChild(row);
-    wrap.appendChild(card);
-    document.documentElement.appendChild(wrap);
-    cancel.focus();
-  }
 
   // --- floating toolbar --------------------------------------------------
   if (config.toolbar === false) return;
@@ -231,7 +196,8 @@
     }));
     bar.appendChild(
       button('home', 'Veil home', function () {
-        confirmLeave(function () { location.href = '/'; });
+        window.__veilInternalNav();
+        location.href = '/';
       }),
     );
     bar.appendChild(
