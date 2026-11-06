@@ -1,8 +1,8 @@
 # Veil
 
-A URL-rewriting web proxy with twelve themes and an anti-close guard. Pages are fetched **server
-side**, and every link, stylesheet, script, form action and cookie is rewritten so the browser
-renders the real document — there are **no iframes** anywhere in this project.
+A URL-rewriting web proxy with twelve themes, a settings drawer and an anti-close guard. Pages are
+fetched **server side**, and every link, stylesheet, script, form action and cookie is rewritten so
+the browser renders the real document — there are **no iframes** anywhere in this project.
 
 ```
 npm start        # http://localhost:3000
@@ -14,9 +14,10 @@ No dependencies. Node 18+ (uses the built-in `fetch`).
 
 | Path | Purpose |
 | --- | --- |
-| `/` | Themed landing page (address bar, quick links, recent history) |
-| `/__p/<absolute-url>` | Proxy endpoint — fetches, rewrites and returns the target |
+| `/` | Themed landing page (address bar, quick links, recent history, settings) |
+| `/__p/<opaque>` | Proxy endpoint — fetches, rewrites and returns the target |
 | `/shim.js` | Runtime shim injected into proxied pages |
+| `/settings.css` | Styles for the settings drawer |
 | `/healthz` | Liveness probe |
 
 1. `lib/proxy.js` fetches the target with the browser's own headers, follows redirects manually and
@@ -37,28 +38,57 @@ No dependencies. Node 18+ (uses the built-in `fetch`).
    patched. The shim also mounts a small floating toolbar (shadow DOM, so it can't collide with page
    CSS) with back / home / reload / anti-close toggle / hide.
 
+### Opaque destinations
+
+A proxy path carries **no visible URL**. `/__p/aHR0cHM6Ly9leGFtcGxlLmNvbS8` is the base64url of the
+target, so hovering a link, reading the address bar, or copying a link never spells out where it
+goes — including search queries. The server decodes the segment, and a directory segment (used by
+`<base>` for relative URLs) is joined with whatever the browser appends. Readable
+`/__p/https://example.com` paths still resolve, so old links keep working.
+
 ### Security
 
 Loopback, private, link-local and cloud-metadata addresses are refused (SSRF guard), requests time
 out after 25s, and response bodies are capped at 16 MB.
 
+## Settings
+
+Open **Settings** in the top bar. Everything is stored per browser in `localStorage`.
+
+| Setting | Key | What it does |
+| --- | --- | --- |
+| Theme | `veil.theme` | Twelve palettes. |
+| Search engine | `veil.engine` | Engine used when the address bar gets a query rather than a URL. |
+| Title | `veil.title` | Tab title and the name in the top bar. |
+| Wisp server | `veil.wisp` | Saved Wisp relay URL. |
+| Confirm before closing | `veil.anticlose` | The anti-close guard. |
+
+The **Wisp server** field is stored but nothing consumes it: this proxy fetches upstream traffic
+from the Node process, so there is no browser-side Wisp transport to point anywhere. Wire it up only
+if you add an Ultraviolet/Rammerhead-style client.
+
+### Search engines
+
+Only engines that serve plain HTML are listed, because a JavaScript-only results page renders blank
+through a rewrite proxy — `duckduckgo.com/?q=` is exactly that, which is why the default is
+`html.duckduckgo.com/html/?q=`. Bing and Startpage work; Brave returns HTTP 429 to the proxy often
+and Google usually shows a consent interstitial, so both are included but unreliable.
+
 ## Anti-close guard
 
-On by default, and shared between the landing page and every proxied page (`veil.anticlose` in
-`localStorage`): closing or reloading a proxied tab raises the browser's own **"Leave site?"**
-confirmation with a *Cancel* / *Leave* pair.
+On by default and shared between the landing page and every proxied page: closing or reloading a
+proxied tab raises the browser's own **"Leave site?"** confirmation with a *Cancel* / *Leave* pair.
 
-That is the browser's native `beforeunload` prompt, not a page-drawn dialog, so it cannot be styled
-or reworded by Veil. Two browser rules come with it:
+That is the native `beforeunload` prompt, not a page-drawn dialog, so it cannot be styled or reworded
+by Veil. Two browser rules come with it:
 
 - It only appears after you have clicked or typed on the page at least once (sticky user
   activation). A tab you open and immediately close closes silently — that is the browser, not Veil.
 - The browser's own *"Prevent this page from creating additional dialogs"* checkbox disables it for
   that tab.
 
-In-proxy navigation (links that stay inside the proxy) is exempt, so normal browsing does not
-prompt. The toolbar shield button toggles the guard from inside a proxied page; the landing page has
-the same switch in the theme drawer.
+In-proxy navigation is exempt, so normal browsing does not prompt. The toolbar shield button toggles
+the guard from inside a proxied page; the settings drawer has the same switch.
 
 ## Keep it running without Codespaces
 
@@ -70,8 +100,7 @@ Codespace, deploy the same container image to any host.
 
 1. Sign in at [render.com](https://render.com) → **New** → **Blueprint**.
 2. Pick this repository. Render reads `render.yaml`, builds the `Dockerfile`, and serves it.
-3. You get `https://veil-proxy-<something>.onrender.com`. That URL stays up when Codespaces is
-   closed.
+3. You get `https://veil-proxy-<something>.onrender.com`, up even when Codespaces is closed.
 
 Render's free plan sleeps after ~15 minutes without traffic and wakes on the next request, so the
 first hit after a nap takes ~30–50s. Any container host works the same way (Fly.io, Railway, Koyeb),
@@ -89,22 +118,14 @@ your files — only the running server goes away until you reopen it.
 ## YouTube
 
 YouTube's SPA is rewritten rather than framed, so its shell renders: header, guide, search, and the
-signed-out feed state all work through `/__p/https://www.youtube.com`. Three things make this
-different from proxying a normal page:
-
-- JS and JSON bodies are rewritten, so `youtubei/v1/*` calls and `i.ytimg.com` assets resolve through
-  the proxy.
-- `Origin`/`Referer` are reconstructed upstream, which those endpoints require.
-- Media still comes from `googlevideo.com` with signed URLs, and Google's bot-guard endpoints
-  (`jnn-pa.googleapis.com`, WAA) reject proxied traffic with 403. Expect playback to be unreliable —
-  the shell browses, videos often will not play, and sign-in is blocked by Google.
-
-For dependable playback you need a Service-Worker proxy (Ultraviolet/Rammerhead style) plus a
-youtubei-level backend, which is a different architecture, not a rewrite rule.
+signed-out feed state all work through `/__p/`. Media still comes from `googlevideo.com` with signed
+URLs, and Google's bot-guard endpoints (`jnn-pa.googleapis.com`, WAA) reject proxied traffic with
+403, so expect playback to be unreliable and sign-in to be blocked. Dependable playback needs a
+Service-Worker proxy (Ultraviolet/Rammerhead style) plus a youtubei-level backend.
 
 ## Themes
 
-Twelve palettes in `public/styles.css`, selected through the drawer and stored in `localStorage`:
+Twelve palettes in `public/styles.css`, selected in the settings drawer:
 Midnight, Obsidian, Nord, Sakura, Sunset, Emerald, Cyberpunk, Mocha, Paper, Ocean, Amethyst, Terminal.
 
 Adding one: copy any `:root[data-theme="…"]` block in `public/styles.css` and add the matching entry
