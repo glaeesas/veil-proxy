@@ -1,8 +1,8 @@
 # Veil
 
-A URL-rewriting web proxy with twelve themes, a settings drawer and an anti-close guard. Pages are
-fetched **server side**, and every link, stylesheet, script, form action and cookie is rewritten so
-the browser renders the real document — there are **no iframes** anywhere in this project.
+A URL-rewriting web proxy with twelve themes and an anti-close guard. Pages are fetched **server
+side**, and every link, stylesheet, script, form action and cookie is rewritten so the browser
+renders the real document — there are **no iframes** anywhere in this project.
 
 ```
 npm start        # http://localhost:3000
@@ -14,12 +14,9 @@ No dependencies. Node 18+ (uses the built-in `fetch`).
 
 | Path | Purpose |
 | --- | --- |
-| `/` | Themed landing page (address bar, quick links, recent history, settings) |
-| `/__p/<opaque>` | Proxy endpoint — fetches, rewrites and returns the target |
+| `/` | Themed landing page (address bar, quick links, recent history) |
+| `/__p/<absolute-url>` | Proxy endpoint — fetches, rewrites and returns the target |
 | `/shim.js` | Runtime shim injected into proxied pages |
-| `/debug.js` | Debug overlay, loaded on every Veil page |
-| `/__debug/state` | JSON request log and process facts for the overlay |
-| `/settings.css` | Styles for the settings drawer |
 | `/healthz` | Liveness probe |
 
 1. `lib/proxy.js` fetches the target with the browser's own headers, follows redirects manually and
@@ -40,64 +37,16 @@ No dependencies. Node 18+ (uses the built-in `fetch`).
    patched. The shim also mounts a small floating toolbar (shadow DOM, so it can't collide with page
    CSS) with back / home / reload / anti-close toggle / hide.
 
-### Single-page apps and the address bar
-
-A SPA writes its own URL. YouTube, for example, replaces the address with `/results?search_query=…`
-and then requests relative paths from whatever origin it thinks it is on. Because a proxied page is
-served from the proxy's origin, those paths used to land on the proxy's static handler and come back
-as a bare `Not found` page.
-
-Two layers keep an SPA inside the proxy:
-
-- `public/shim.js` patches `history.pushState` / `replaceState` (strings **and** `URL` objects) and the
-  Navigation API (`navigation.navigate`, `navigation.updateCurrentEntry`, `navigation.reload`), which
-  is what Chrome-based sites actually use for route changes.
-- `server.js` is the safety net. If a request arrives for a path that is not a real file and its
-  `Referer` points at a proxied page, the path is turned back into
-  `/__p/<opaque target>` and the visitor is redirected there — `302` for GET, `307` for POST so the
-  body survives. Innertube-style API calls recover this way instead of failing.
-
-### Opaque destinations
-
-A proxy path carries **no visible URL**. `/__p/aHR0cHM6Ly9leGFtcGxlLmNvbS8` is the base64url of the
-target, so hovering a link, reading the address bar, or copying a link never spells out where it
-goes — including search queries. The server decodes the segment, and a directory segment (used by
-`<base>` for relative URLs) is joined with whatever the browser appends. Readable
-`/__p/https://example.com` paths still resolve, so old links keep working.
-
 ### Security
 
 Loopback, private, link-local and cloud-metadata addresses are refused (SSRF guard), requests time
 out after 25s, and response bodies are capped at 16 MB.
 
-## Settings
-
-Open **Settings** in the top bar. Everything is stored per browser in `localStorage`.
-
-| Setting | Key | What it does |
-| --- | --- | --- |
-| Theme | `veil.theme` | Twelve palettes. |
-| Search engine | `veil.engine` | Engine used when the address bar gets a query rather than a URL. |
-| Title | `veil.title` | Tab title and the name in the top bar. |
-| Wisp server | `veil.wisp` | Saved Wisp relay URL. |
-| Confirm before closing | `veil.anticlose` | The anti-close guard. |
-
-The **Wisp server** field is stored but nothing consumes it: this proxy fetches upstream traffic
-from the Node process, so there is no browser-side Wisp transport to point anywhere. Wire it up only
-if you add an Ultraviolet/Rammerhead-style client.
-
-### Search engines
-
-Only engines that serve plain HTML are listed, because a JavaScript-only results page renders blank
-through a rewrite proxy — `duckduckgo.com/?q=` is exactly that, which is why the default is
-`html.duckduckgo.com/html/?q=`. Bing and Startpage work; Brave returns HTTP 429 to the proxy often
-and Google usually shows a consent interstitial, so both are included but unreliable.
-
 ## Debugging
 
 Press **Ctrl+Alt+D** (Cmd+Alt+D on macOS) on any Veil page — the landing page, an error page, or
-inside a proxied site — or add `?debug=1` to a URL. The overlay opens from the error screen's
-**Open debug** button too.
+inside a proxied site — or add `?debug=1` to a URL. The overlay is also reachable from the error
+screen and from the floating toolbar's bug button.
 
 It shows, without leaving the page:
 
@@ -111,82 +60,92 @@ It shows, without leaving the page:
 - a **probe** box that pushes a URL through the proxy and reports status and timing;
 - **Copy report**, which puts all of the above (plus user agent and viewport) on the clipboard as JSON.
 
+### Console
+
+The **Console** tab is a working DevTools console for the page you are on. `debug.js` loads
+synchronously, ahead of the site's own scripts, so it captures from the first line: `console.log`,
+`info`, `warn`, `error`, `debug`, uncaught exceptions with their stack, unhandled promise rejections,
+and failed `fetch` / `XMLHttpRequest` calls with their status.
+
+- the prompt evaluates JavaScript **in the page's own global scope**, so the site's variables and
+  libraries are in scope; expressions return their value, statements run for effect, and promises
+  report what they settled with;
+- `↑` / `↓` walk the command history and `Ctrl+L` clears the view;
+- the filter box narrows by text, and the tab badge counts errors;
+- the buffer holds the last 400 entries in memory only — nothing is sent anywhere.
+
+`window.__veilDebug` exposes `open`, `close`, `toggle`, `refresh`, `report()` and
+`console.{run, clear, entries}`, so the same console can be driven from outside the overlay.
+
 `/__debug/state` returns the same data as JSON. It is same-origin and read-only apart from
-`?clear=1`, which empties the in-memory log; it contains no response body, cookie value or credential.
-`lib/diag.js` keeps the last 100 requests in memory and nothing on disk.
+`?clear=1`, which empties the in-memory log; there is no response body, cookie value or credential
+in it.
 
 ### Error screens
 
 Every proxy failure renders a page that names the cause instead of just echoing a status code:
 status, target URL, error code, upstream status, trace id and timestamp, plus a **what to try** note
 written for that specific failure — an unresolvable hostname, a bad certificate, a timeout, a refused
-connection, a blocked private address, an oversized upload. The trace id matches the one in the server
-log, so the debug overlay can show the exact request behind the error.
+connection, a blocked private address, an oversized upload. The trace id in the panel matches the one
+in the server log, so the debug overlay can show the exact request behind the error.
 
 ## Anti-close guard
 
-On by default and shared between the landing page and every proxied page: closing or reloading a
-proxied tab raises the browser's own **"Leave site?"** confirmation with a *Cancel* / *Leave* pair.
+On by default, and shared between the landing page and every proxied page (`veil.anticlose` in
+`localStorage`): closing or reloading a proxied tab raises the browser's own **"Leave site?"**
+confirmation with a *Cancel* / *Leave* pair.
 
-That is the native `beforeunload` prompt, not a page-drawn dialog, so it cannot be styled or reworded
-by Veil. Two browser rules come with it:
+That is Chrome's native `beforeunload` prompt, not a page-drawn dialog, so it cannot be styled or
+reworded by Veil. Two browser rules come with it:
 
-- It only appears after you have clicked or typed on the page at least once (sticky user
-  activation). A tab you open and immediately close closes silently — that is the browser, not Veil.
-- The browser's own *"Prevent this page from creating additional dialogs"* checkbox disables it for
-  that tab.
+- Chrome suppresses it until you have clicked or typed on the page at least once (sticky user
+  activation). A tab you open and immediately close will close silently — that is Chrome, not Veil.
+- Chrome offers its own *"Prevent this page from creating additional dialogs"* checkbox. Ticking it
+  disables the prompt for that tab.
 
-In-proxy navigation is exempt, so normal browsing does not prompt. The toolbar shield button toggles
-the guard from inside a proxied page; the settings drawer has the same switch.
+In-proxy navigation (links that stay inside the proxy) is exempt, so normal browsing does not
+prompt. The toolbar shield button toggles the guard from inside a proxied page; the landing page has
+the same switch in the theme drawer.
 
 ## Keep it running without Codespaces
 
 A Codespace **stops** after its idle timeout (30 minutes by default) and can never be left running
 indefinitely, so its forwarded URL is not a permanent host. To get a URL that outlives the
-Codespace, deploy the same container image to any host.
+Codespace, deploy the same container image to any host:
 
 **Render (free, no credit card).** This repo ships `render.yaml` and `Dockerfile`:
 
 1. Sign in at [render.com](https://render.com) → **New** → **Blueprint**.
-2. Pick this repository. Render reads `render.yaml`, builds the `Dockerfile`, and serves it.
-3. You get `https://veil-proxy-<something>.onrender.com`, up even when Codespaces is closed.
+2. Pick this repository. Render reads `render.yaml` and builds the `Dockerfile`.
+3. You get `https://veil-proxy-<something>.onrender.com`. Point Veil at it and it stays up.
 
-Render's free plan sleeps after ~15 minutes without traffic and wakes on the next request, so the
-first hit after a nap takes ~30–50s. Any container host works the same way (Fly.io, Railway, Koyeb),
-as does a VPS:
+Render's free plan sleeps after ~15 minutes of no traffic and wakes on the next request (first hit
+takes ~30–50s). Any container host works the same way, e.g. Fly.io, Railway, Koyeb, or a VPS with
+`docker build -t veil . && docker run -p 3000:3000 veil`.
 
-```
-docker build -t veil .
-docker run -d -p 3000:3000 -e PORT=3000 --name veil veil
-```
-
-**Keeping the Codespace alive instead:** raise *Codespaces → idle timeout* in your GitHub
-[settings](https://github.com/settings/codespaces) to 240 minutes. A stopped Codespace still keeps
-your files — only the running server goes away until you reopen it.
+**Keeping the Codespace alive instead:** set *Codespaces → idle timeout* in your GitHub
+[settings](https://github.com/settings/codespaces) to 240 minutes, and note that a stopped Codespace
+still keeps your files — only the running server goes away until you reopen it.
 
 ## YouTube
 
-Search, channel pages and the video shell are rewritten rather than framed, so the site renders
-through `/__p/`. Two limits are worth knowing before blaming the proxy:
+YouTube's SPA is rewritten rather than framed, so its shell renders: header, guide, search, and the
+signed-out feed state all work through `/__p/https://www.youtube.com`. Three things make this
+different from proxying a normal page:
 
-- **"Sign in to confirm you're not a bot" is an IP check.** YouTube returns
-  `playabilityStatus: LOGIN_REQUIRED` with that reason for traffic from datacenter addresses, and it
-  varies per video. It is returned by YouTube itself and reaches the proxy inside the player payload,
-  so no amount of header or cookie rewriting removes it — tested with the consent cookies and a real
-  `visitorData`/`X-Goog-Visitor-Id` pair, and the wall stayed up. A build hosted on Render (or any
-  datacenter) will hit it. Run Veil on your own machine — `npm start`, then `http://localhost:3000` —
-  and the same videos load, because the requests come from a residential address instead.
-- **Playback still needs more than rewriting.** `googlevideo.com` URLs are signed and byte-range
-  driven; some streams work through the proxy, others stall. Google's bot-guard endpoints
-  (`jnn-pa.googleapis.com`, WAA) also reject proxied traffic. Dependable playback needs a
-  Service-Worker proxy (Ultraviolet/Rammerhead style) plus a youtubei-level backend, which is a
-  different architecture.
+- JS and JSON bodies are rewritten, so `youtubei/v1/*` calls and `i.ytimg.com` assets resolve through
+  the proxy.
+- `Origin`/`Referer` are reconstructed upstream, which those endpoints require.
+- Media still comes from `googlevideo.com` with signed URLs, and Google's bot-guard endpoints
+  (`jnn-pa.googleapis.com`, WAA) reject proxied traffic with 403. Expect playback to be unreliable —
+  the shell browses, videos often will not play, and sign-in is blocked by Google.
 
-Signing in to YouTube through the proxy is blocked by Google for the same reason.
+For dependable playback you need a Service-Worker proxy (Ultraviolet/Rammerhead style) plus a
+youtubei-level backend, which is a different architecture, not a rewrite rule.
 
 ## Themes
 
-Twelve palettes in `public/styles.css`, selected in the settings drawer:
+Twelve palettes in `public/styles.css`, selected through the drawer and stored in `localStorage`:
 Midnight, Obsidian, Nord, Sakura, Sunset, Emerald, Cyberpunk, Mocha, Paper, Ocean, Amethyst, Terminal.
 
 Adding one: copy any `:root[data-theme="…"]` block in `public/styles.css` and add the matching entry
