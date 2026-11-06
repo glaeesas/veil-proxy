@@ -17,6 +17,8 @@ No dependencies. Node 18+ (uses the built-in `fetch`).
 | `/` | Themed landing page (address bar, quick links, recent history, settings) |
 | `/__p/<opaque>` | Proxy endpoint — fetches, rewrites and returns the target |
 | `/shim.js` | Runtime shim injected into proxied pages |
+| `/debug.js` | Debug overlay, loaded on every Veil page |
+| `/__debug/state` | JSON request log and process facts for the overlay |
 | `/settings.css` | Styles for the settings drawer |
 | `/healthz` | Liveness probe |
 
@@ -91,6 +93,36 @@ through a rewrite proxy — `duckduckgo.com/?q=` is exactly that, which is why t
 `html.duckduckgo.com/html/?q=`. Bing and Startpage work; Brave returns HTTP 429 to the proxy often
 and Google usually shows a consent interstitial, so both are included but unreliable.
 
+## Debugging
+
+Press **Ctrl+Alt+D** (Cmd+Alt+D on macOS) on any Veil page — the landing page, an error page, or
+inside a proxied site — or add `?debug=1` to a URL. The overlay opens from the error screen's
+**Open debug** button too.
+
+It shows, without leaving the page:
+
+- the opaque address alongside the **real proxied target**, decoded for you;
+- the matching server-side request record: status, duration, bytes, upstream status, trace id and error;
+- server facts from `/__debug/state` — Node version, uptime, port, memory, request count;
+- which shim patches are live (`fetch`, XHR, history, Navigation API), so a site that escapes the
+  proxy is obvious at a glance;
+- your stored `veil.*` settings;
+- the last dozen proxied requests, newest first, failures highlighted;
+- a **probe** box that pushes a URL through the proxy and reports status and timing;
+- **Copy report**, which puts all of the above (plus user agent and viewport) on the clipboard as JSON.
+
+`/__debug/state` returns the same data as JSON. It is same-origin and read-only apart from
+`?clear=1`, which empties the in-memory log; it contains no response body, cookie value or credential.
+`lib/diag.js` keeps the last 100 requests in memory and nothing on disk.
+
+### Error screens
+
+Every proxy failure renders a page that names the cause instead of just echoing a status code:
+status, target URL, error code, upstream status, trace id and timestamp, plus a **what to try** note
+written for that specific failure — an unresolvable hostname, a bad certificate, a timeout, a refused
+connection, a blocked private address, an oversized upload. The trace id matches the one in the server
+log, so the debug overlay can show the exact request behind the error.
+
 ## Anti-close guard
 
 On by default and shared between the landing page and every proxied page: closing or reloading a
@@ -148,7 +180,7 @@ through `/__p/`. Two limits are worth knowing before blaming the proxy:
   driven; some streams work through the proxy, others stall. Google's bot-guard endpoints
   (`jnn-pa.googleapis.com`, WAA) also reject proxied traffic. Dependable playback needs a
   Service-Worker proxy (Ultraviolet/Rammerhead style) plus a youtubei-level backend, which is a
-different architecture.
+  different architecture.
 
 Signing in to YouTube through the proxy is blocked by Google for the same reason.
 
