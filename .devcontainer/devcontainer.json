@@ -1,0 +1,19 @@
+{
+  "name": "Veil Proxy",
+  "image": "mcr.microsoft.com/devcontainers/javascript-node:22",
+  "forwardPorts": [3000],
+  "portsAttributes": {
+    "3000": {
+      "label": "Veil Proxy",
+      "onAutoForward": "openPreview",
+      "visibility": "public"
+    }
+  },
+  "postStartCommand": "nohup node server.js > /tmp/veil.log 2>&1 &",
+  "postAttachCommand": "echo 'Veil is starting on port 3000 — open the Ports tab and make it Public to share the URL.'",
+  "customizations": {
+    "vscode": {
+      "extensions": ["dbaeumer.vscode-eslint"]
+    }
+  }
+}
