@@ -97,6 +97,83 @@
     true,
   );
 
+  // --- anti-close guard --------------------------------------------------
+  // Closing the tab, reloading or navigating away asks for confirmation.
+  // In-proxy navigation is exempt so browsing does not prompt on every link.
+  var GUARD_KEY = 'veil.anticlose';
+
+  function guardEnabled() {
+    try { return localStorage.getItem(GUARD_KEY) !== 'off'; } catch (err) { return true; }
+  }
+
+  function setGuard(enabled) {
+    try { localStorage.setItem(GUARD_KEY, enabled ? 'on' : 'off'); } catch (err) { /* ignore */ }
+  }
+
+  var internalNav = false;
+  window.__veilInternalNav = function () {
+    internalNav = true;
+    setTimeout(function () { internalNav = false; }, 4000);
+  };
+
+  window.addEventListener('beforeunload', function (event) {
+    if (!guardEnabled() || internalNav) return undefined;
+    event.preventDefault();
+    event.returnValue = 'Leave Veil?';
+    return 'Leave Veil?';
+  });
+
+  document.addEventListener(
+    'click',
+    function (event) {
+      var anchor = event.target && event.target.closest ? event.target.closest('a[href]') : null;
+      if (!anchor) return;
+      try {
+        if (anchor.origin === location.origin) window.__veilInternalNav();
+      } catch (err) { /* ignore */ }
+    },
+    true,
+  );
+
+  function confirmLeave(onLeave) {
+    if (!guardEnabled()) { onLeave(); return; }
+    var wrap = document.createElement('div');
+    wrap.style.cssText =
+      'all:initial;position:fixed;inset:0;z-index:2147483647;display:grid;place-items:center;' +
+      'background:rgba(6,4,12,.58);backdrop-filter:blur(6px)';
+    var card = document.createElement('div');
+    card.style.cssText =
+      'all:initial;display:block;width:min(350px,86vw);padding:22px;border-radius:18px;' +
+      'background:#120c1e;border:1px solid rgba(255,255,255,.14);box-shadow:0 24px 60px rgba(0,0,0,.55);' +
+      'font:14px/1.55 ui-sans-serif,system-ui,-apple-system,"Segoe UI",Roboto,sans-serif;color:#f2eaff';
+    card.innerHTML =
+      '<div style="font:600 15.5px ui-sans-serif,system-ui,sans-serif;color:#f9f5ff;margin-bottom:6px">Leave this page?</div>' +
+      '<div style="color:#b6a9cf;margin-bottom:18px">The anti-close guard is on. You will lose this page.</div>';
+    var row = document.createElement('div');
+    row.style.cssText = 'display:flex;gap:8px;justify-content:flex-end';
+    var cancel = document.createElement('button');
+    cancel.type = 'button';
+    cancel.textContent = 'Stay';
+    cancel.style.cssText =
+      'all:unset;cursor:pointer;padding:9px 16px;border-radius:10px;background:rgba(255,255,255,.09);' +
+      'color:#e8e0f8;font:600 13px ui-sans-serif,system-ui,sans-serif';
+    var leave = document.createElement('button');
+    leave.type = 'button';
+    leave.textContent = 'Leave';
+    leave.style.cssText =
+      'all:unset;cursor:pointer;padding:9px 16px;border-radius:10px;' +
+      'background:linear-gradient(135deg,#c084fc,#22d3ee);color:#0a0712;font:700 13px ui-sans-serif,system-ui,sans-serif';
+    cancel.addEventListener('click', function () { wrap.remove(); });
+    leave.addEventListener('click', function () { wrap.remove(); onLeave(); });
+    wrap.addEventListener('click', function (event) { if (event.target === wrap) wrap.remove(); });
+    row.appendChild(cancel);
+    row.appendChild(leave);
+    card.appendChild(row);
+    wrap.appendChild(card);
+    document.documentElement.appendChild(wrap);
+    cancel.focus();
+  }
+
   // --- floating toolbar --------------------------------------------------
   if (config.toolbar === false) return;
 
@@ -127,6 +204,7 @@
 
     var icons = {
       back: '<path d="M15 6l-6 6 6 6"/>',
+      shield: '<path d="M12 4l7 3v5c0 4.2-2.9 7.4-7 8-4.1-.6-7-3.8-7-8V7z"/><path d="M9.2 12.2l2 2 3.6-3.9"/>',
       home: '<path d="M4 11l8-7 8 7"/><path d="M6.5 9.5V19h11V9.5"/>',
       reload: '<path d="M20 12a8 8 0 1 1-2.6-5.9"/><path d="M20 4v4.5h-4.5"/>',
       hide: '<path d="M6 6l12 12"/><path d="M18 6L6 18"/>',
@@ -147,9 +225,36 @@
       return el;
     }
 
-    bar.appendChild(button('back', 'Back', function () { history.back(); }));
-    bar.appendChild(button('home', 'Veil home', function () { location.href = '/'; }));
-    bar.appendChild(button('reload', 'Reload', function () { location.reload(); }));
+    bar.appendChild(button('back', 'Back', function () {
+      window.__veilInternalNav();
+      history.back();
+    }));
+    bar.appendChild(
+      button('home', 'Veil home', function () {
+        confirmLeave(function () { location.href = '/'; });
+      }),
+    );
+    bar.appendChild(
+      button('reload', 'Reload', function () {
+        window.__veilInternalNav();
+        location.reload();
+      }),
+    );
+    bar.appendChild(document.createElement('span')).className = 'sep';
+
+    var guardButton = button('shield', 'Anti-close guard: on', function () {
+      var next = !guardEnabled();
+      setGuard(next);
+      guardButton.title = 'Anti-close guard: ' + (next ? 'on' : 'off');
+      guardButton.setAttribute('aria-label', guardButton.title);
+      guardButton.style.color = next ? '#c4f5d0' : 'rgba(233,226,251,.4)';
+    });
+    if (!guardEnabled()) {
+      guardButton.style.color = 'rgba(233,226,251,.4)';
+      guardButton.title = 'Anti-close guard: off';
+      guardButton.setAttribute('aria-label', guardButton.title);
+    }
+    bar.appendChild(guardButton);
     bar.appendChild(document.createElement('span')).className = 'sep';
     bar.appendChild(button('hide', 'Hide toolbar', function () { host.remove(); }));
 

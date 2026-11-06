@@ -71,6 +71,9 @@
         <a class="chip" href="/__p/https://en.wikipedia.org/wiki/Special:Random">
           <span class="chip-glyph">W</span> Wikipedia
         </a>
+        <a class="chip" href="/__p/https://www.youtube.com">
+          <span class="chip-glyph">▸</span> YouTube
+        </a>
         <a class="chip" href="/__p/https://news.ycombinator.com">
           <span class="chip-glyph">Y</span> Hacker News
         </a>
@@ -130,6 +133,10 @@
     </div>
     <p class="drawer-sub">Twelve hand-tuned palettes. Pick one — it sticks.</p>
     <div class="theme-grid" id="theme-grid"></div>
+    <button class="chip" id="guard-toggle" type="button" aria-pressed="true"
+            style="margin-top:22px" aria-label="Toggle confirm before closing">
+      <span class="chip-glyph">◈</span> Confirm before closing: <strong id="guard-state">On</strong>
+    </button>
   </aside>
 
   <script src="/app.js" type="module"></script>

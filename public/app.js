@@ -22,6 +22,43 @@ const address = document.getElementById('address');
 const omnibox = document.getElementById('omnibox');
 const recentWrap = document.getElementById('recent');
 const recentList = document.getElementById('recent-list');
+const guardBtn = document.getElementById('guard-toggle');
+const guardState = document.getElementById('guard-state');
+
+/* ------------------------------------------------------------ anti-close */
+
+const GUARD_KEY = 'veil.anticlose';
+let internalNav = false;
+
+function guardEnabled() {
+  try { return localStorage.getItem(GUARD_KEY) !== 'off'; } catch { return true; }
+}
+
+function setGuard(enabled) {
+  try { localStorage.setItem(GUARD_KEY, enabled ? 'on' : 'off'); } catch { /* ignore */ }
+}
+
+function renderGuard() {
+  const on = guardEnabled();
+  guardBtn.setAttribute('aria-pressed', String(on));
+  guardState.textContent = on ? 'On' : 'Off';
+}
+
+window.addEventListener('beforeunload', (event) => {
+  if (!guardEnabled() || internalNav) return undefined;
+  event.preventDefault();
+  event.returnValue = 'Leave Veil?';
+  return 'Leave Veil?';
+});
+
+document.addEventListener(
+  'click',
+  (event) => {
+    const link = event.target.closest ? event.target.closest('a[href]') : null;
+    if (link && link.origin === location.origin) internalNav = true;
+  },
+  true,
+);
 
 /* ---------------------------------------------------------------- theme */
 
@@ -127,6 +164,7 @@ omnibox.addEventListener('submit', (event) => {
     return;
   }
   remember(target);
+  internalNav = true;
   location.href = `/__p/${target}`;
 });
 
@@ -158,9 +196,15 @@ fetch('/healthz')
     document.getElementById('status-text').textContent = 'offline';
   });
 
+guardBtn.addEventListener('click', () => {
+  setGuard(!guardEnabled());
+  renderGuard();
+});
+
 let saved = null;
 try { saved = localStorage.getItem(STORE.theme); } catch { /* ignore */ }
 buildThemeGrid();
 applyTheme(saved || 'midnight', false);
+renderGuard();
 renderRecent();
 address.focus({ preventScroll: true });
