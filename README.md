@@ -45,15 +45,46 @@ out after 25s, and response bodies are capped at 16 MB.
 ## Anti-close guard
 
 On by default, and shared between the landing page and every proxied page (`veil.anticlose` in
-`localStorage`):
+`localStorage`): closing or reloading a proxied tab raises the browser's own **"Leave site?"**
+confirmation with a *Cancel* / *Leave* pair.
 
-- Closing the tab, reloading, or leaving the site raises a confirmation prompt.
-- In-proxy navigation (links that stay on the proxy) is exempt, so browsing does not nag.
-- The toolbar shield button toggles it from inside a proxied page; the landing page has the same
-  switch in the theme drawer.
+That is the browser's native `beforeunload` prompt, not a page-drawn dialog, so it cannot be styled
+or reworded by Veil. Two browser rules come with it:
 
-Browsers only show the native "Leave site?" dialog after a user gesture on the page, and its wording
-is browser-controlled — that is a browser rule, not something a page can override.
+- It only appears after you have clicked or typed on the page at least once (sticky user
+  activation). A tab you open and immediately close closes silently — that is the browser, not Veil.
+- The browser's own *"Prevent this page from creating additional dialogs"* checkbox disables it for
+  that tab.
+
+In-proxy navigation (links that stay inside the proxy) is exempt, so normal browsing does not
+prompt. The toolbar shield button toggles the guard from inside a proxied page; the landing page has
+the same switch in the theme drawer.
+
+## Keep it running without Codespaces
+
+A Codespace **stops** after its idle timeout (30 minutes by default) and can never be left running
+indefinitely, so its forwarded URL is not a permanent host. To get a URL that outlives the
+Codespace, deploy the same container image to any host.
+
+**Render (free, no credit card).** This repo ships `render.yaml` and `Dockerfile`:
+
+1. Sign in at [render.com](https://render.com) → **New** → **Blueprint**.
+2. Pick this repository. Render reads `render.yaml`, builds the `Dockerfile`, and serves it.
+3. You get `https://veil-proxy-<something>.onrender.com`. That URL stays up when Codespaces is
+   closed.
+
+Render's free plan sleeps after ~15 minutes without traffic and wakes on the next request, so the
+first hit after a nap takes ~30–50s. Any container host works the same way (Fly.io, Railway, Koyeb),
+as does a VPS:
+
+```
+docker build -t veil .
+docker run -d -p 3000:3000 -e PORT=3000 --name veil veil
+```
+
+**Keeping the Codespace alive instead:** raise *Codespaces → idle timeout* in your GitHub
+[settings](https://github.com/settings/codespaces) to 240 minutes. A stopped Codespace still keeps
+your files — only the running server goes away until you reopen it.
 
 ## YouTube
 
