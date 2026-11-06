@@ -24,6 +24,7 @@
   }
 
   function fix(url) {
+    if (typeof URL !== 'undefined' && url instanceof URL) return fix(url.href);
     if (typeof url !== 'string') return url;
     var value = url.trim();
     if (!value || value.charAt(0) === '#' || SKIP.test(value)) return url;
@@ -76,11 +77,44 @@
     history[name] = function (state, title, url) {
       var args = Array.prototype.slice.call(arguments);
       try {
-        if (typeof url === 'string') args[2] = fix(url);
+        if (url !== undefined && url !== null) args[2] = fix(url);
       } catch (err) { /* keep original */ }
       return original.apply(this, args);
     };
   });
+
+  // --- Navigation API ----------------------------------------------------
+  // Chrome exposes navigation.navigate()/updateCurrentEntry(), which bypass
+  // history.pushState. Sites built on it (YouTube) used it to rewrite the
+  // address to a plain path that then resolved outside the proxy.
+  if (window.navigation) {
+    var nav = window.navigation;
+    if (typeof nav.navigate === 'function') {
+      var nativeNavigate = nav.navigate;
+      nav.navigate = function (url, options) {
+        var target = url;
+        try { if (url) target = fix(url); } catch (err) { target = url; }
+        return nativeNavigate.call(nav, target, options);
+      };
+    }
+    if (typeof nav.updateCurrentEntry === 'function') {
+      var nativeUpdate = nav.updateCurrentEntry;
+      nav.updateCurrentEntry = function (options) {
+        var next = options;
+        try {
+          if (options && options.url) next = Object.assign({}, options, { url: fix(options.url) });
+        } catch (err) { next = options; }
+        return nativeUpdate.call(nav, next);
+      };
+    }
+    if (typeof nav.reload === 'function') {
+      var nativeReload = nav.reload;
+      nav.reload = function (options) {
+        if (window.__veilInternalNav) window.__veilInternalNav();
+        return nativeReload.call(nav, options);
+      };
+    }
+  }
 
   // --- DOM attribute writes ---------------------------------------------
   var URL_PROPS = /^(src|href|action|poster|formaction|data-src|data-href)$/i;

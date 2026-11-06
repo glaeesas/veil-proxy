@@ -38,6 +38,23 @@ No dependencies. Node 18+ (uses the built-in `fetch`).
    patched. The shim also mounts a small floating toolbar (shadow DOM, so it can't collide with page
    CSS) with back / home / reload / anti-close toggle / hide.
 
+### Single-page apps and the address bar
+
+A SPA writes its own URL. YouTube, for example, replaces the address with `/results?search_query=…`
+and then requests relative paths from whatever origin it thinks it is on. Because a proxied page is
+served from the proxy's origin, those paths used to land on the proxy's static handler and come back
+as a bare `Not found` page.
+
+Two layers keep an SPA inside the proxy:
+
+- `public/shim.js` patches `history.pushState` / `replaceState` (strings **and** `URL` objects) and the
+  Navigation API (`navigation.navigate`, `navigation.updateCurrentEntry`, `navigation.reload`), which
+  is what Chrome-based sites actually use for route changes.
+- `server.js` is the safety net. If a request arrives for a path that is not a real file and its
+  `Referer` points at a proxied page, the path is turned back into
+  `/__p/<opaque target>` and the visitor is redirected there — `302` for GET, `307` for POST so the
+  body survives. Innertube-style API calls recover this way instead of failing.
+
 ### Opaque destinations
 
 A proxy path carries **no visible URL**. `/__p/aHR0cHM6Ly9leGFtcGxlLmNvbS8` is the base64url of the
@@ -117,11 +134,23 @@ your files — only the running server goes away until you reopen it.
 
 ## YouTube
 
-YouTube's SPA is rewritten rather than framed, so its shell renders: header, guide, search, and the
-signed-out feed state all work through `/__p/`. Media still comes from `googlevideo.com` with signed
-URLs, and Google's bot-guard endpoints (`jnn-pa.googleapis.com`, WAA) reject proxied traffic with
-403, so expect playback to be unreliable and sign-in to be blocked. Dependable playback needs a
-Service-Worker proxy (Ultraviolet/Rammerhead style) plus a youtubei-level backend.
+Search, channel pages and the video shell are rewritten rather than framed, so the site renders
+through `/__p/`. Two limits are worth knowing before blaming the proxy:
+
+- **"Sign in to confirm you're not a bot" is an IP check.** YouTube returns
+  `playabilityStatus: LOGIN_REQUIRED` with that reason for traffic from datacenter addresses, and it
+  varies per video. It is returned by YouTube itself and reaches the proxy inside the player payload,
+  so no amount of header or cookie rewriting removes it — tested with the consent cookies and a real
+  `visitorData`/`X-Goog-Visitor-Id` pair, and the wall stayed up. A build hosted on Render (or any
+  datacenter) will hit it. Run Veil on your own machine — `npm start`, then `http://localhost:3000` —
+  and the same videos load, because the requests come from a residential address instead.
+- **Playback still needs more than rewriting.** `googlevideo.com` URLs are signed and byte-range
+  driven; some streams work through the proxy, others stall. Google's bot-guard endpoints
+  (`jnn-pa.googleapis.com`, WAA) also reject proxied traffic. Dependable playback needs a
+  Service-Worker proxy (Ultraviolet/Rammerhead style) plus a youtubei-level backend, which is a
+different architecture.
+
+Signing in to YouTube through the proxy is blocked by Google for the same reason.
 
 ## Themes
 
