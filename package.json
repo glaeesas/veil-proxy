@@ -1,0 +1,17 @@
+{
+  "name": "veil-proxy",
+  "version": "1.0.0",
+  "private": true,
+  "description": "Veil — a URL-rewriting web proxy with a themed UI. No iframes, no dependencies.",
+  "type": "module",
+  "main": "server.js",
+  "engines": {
+    "node": ">=18"
+  },
+  "scripts": {
+    "start": "node server.js",
+    "dev": "node --watch server.js"
+  },
+  "keywords": ["proxy", "web-proxy", "node", "codespaces"],
+  "license": "MIT"
+}
