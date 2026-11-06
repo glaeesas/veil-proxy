@@ -1,0 +1,47 @@
+/* ---------------------------------------------------------------- settings */
+
+.setting-group { margin-top: 26px; }
+.setting-group h3 {
+  margin: 0 0 10px;
+  font-size: 11.5px;
+  font-weight: 600;
+  letter-spacing: .13em;
+  text-transform: uppercase;
+  color: var(--muted);
+}
+
+.field {
+  width: 100%;
+  box-sizing: border-box;
+  padding: 11px 14px;
+  border-radius: var(--radius-sm);
+  background: var(--surface);
+  border: 1px solid var(--border);
+  color: var(--text);
+  font: 500 14px/1.4 var(--font);
+  outline: none;
+  transition: border-color .15s var(--ease), background .15s var(--ease);
+}
+.field::placeholder { color: var(--faint); font-weight: 400; }
+.field:focus-visible { border-color: var(--accent); background: var(--surface-hi); }
+.field:hover { border-color: var(--border-hi); }
+
+select.field {
+  appearance: none;
+  cursor: pointer;
+  padding-right: 36px;
+  background-image:
+    linear-gradient(45deg, transparent 50%, currentColor 50%),
+    linear-gradient(135deg, currentColor 50%, transparent 50%);
+  background-position: calc(100% - 19px) 50%, calc(100% - 14px) 50%;
+  background-size: 5px 5px, 5px 5px;
+  background-repeat: no-repeat;
+}
+select.field option { background: var(--bg-tint); color: var(--text); }
+
+.hint {
+  margin: 8px 2px 0;
+  font-size: 12px;
+  line-height: 1.55;
+  color: var(--faint);
+}

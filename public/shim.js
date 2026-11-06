@@ -10,15 +10,28 @@
   var ABSOLUTE = /^[a-z][a-z0-9+.-]*:/i;
   var SKIP = /^(data|blob|javascript|about|mailto|tel|magnet|sms):/i;
 
+  // Proxy paths carry an opaque base64url target so the destination never
+  // shows in the address bar or the browser's link-hover preview.
+  function encode(url) {
+    try {
+      var bytes = new TextEncoder().encode(url);
+      var binary = '';
+      for (var i = 0; i < bytes.length; i += 1) binary += String.fromCharCode(bytes[i]);
+      return btoa(binary).replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/, '');
+    } catch (err) {
+      return url;
+    }
+  }
+
   function fix(url) {
     if (typeof url !== 'string') return url;
     var value = url.trim();
     if (!value || value.charAt(0) === '#' || SKIP.test(value)) return url;
     if (value.indexOf(PREFIX) === 0) return value;
     if (value.indexOf(location.origin + PREFIX) === 0) return value;
-    if (/^\/\//.test(value)) return PREFIX + 'https:' + value;
-    if (ABSOLUTE.test(value)) return PREFIX + value;
-    if (value.charAt(0) === '/') return PREFIX + ORIGIN + value;
+    if (/^\/\//.test(value)) return PREFIX + encode('https:' + value);
+    if (ABSOLUTE.test(value)) return PREFIX + encode(value);
+    if (value.charAt(0) === '/') return PREFIX + encode(ORIGIN + value);
     return url;
   }
 
