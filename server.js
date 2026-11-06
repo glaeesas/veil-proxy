@@ -4,6 +4,7 @@ import { extname, join, normalize } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { decodeTarget, handleProxy, PROXY_PREFIX } from './lib/proxy.js';
 import { encodeTarget } from './lib/rewrite.js';
+import { clearLog, recent, stats } from './lib/diag.js';
 
 const PORT = Number(process.env.PORT || 3000);
 const HOST = process.env.HOST || '0.0.0.0';
@@ -60,6 +61,27 @@ const server = createServer(async (req, res) => {
 
     if (url.pathname.startsWith(PROXY_PREFIX)) {
       return await handleProxy(req, res);
+    }
+
+    // Everything the debug overlay needs, in one call. Same-origin only: it is
+    // served from this host and exposes nothing beyond local request metadata.
+    if (url.pathname === '/__debug/state') {
+      if (url.searchParams.get('clear') === '1') clearLog();
+      res.writeHead(200, { 'content-type': 'application/json; charset=utf-8', 'cache-control': 'no-store' });
+      return res.end(
+        JSON.stringify({
+          ok: true,
+          node: process.version,
+          platform: `${process.platform}/${process.arch}`,
+          pid: process.pid,
+          port: PORT,
+          host: HOST,
+          uptimeSec: Math.round(process.uptime()),
+          memoryMb: Math.round(process.memoryUsage().rss / 1048576),
+          log: recent(30),
+          stats: stats(),
+        }),
+      );
     }
 
     if (url.pathname === '/healthz') {
