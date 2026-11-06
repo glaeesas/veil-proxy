@@ -35,7 +35,7 @@ No dependencies. Node 18+ (uses the built-in `fetch`).
 5. A `<base>` tag plus `public/shim.js` keep runtime-created URLs inside the proxy: `fetch`,
    `XMLHttpRequest`, `window.open`, `history.pushState`, `setAttribute`, and click handlers are all
    patched. The shim also mounts a small floating toolbar (shadow DOM, so it can't collide with page
-   CSS) with back / home / reload / anti-close toggle / hide.
+   CSS) with back / home / reload / DevTools / anti-close toggle / hide.
 
 ### Security
 
@@ -45,8 +45,8 @@ out after 25s, and response bodies are capped at 16 MB.
 ## Debugging
 
 Press **Ctrl+Alt+D** (Cmd+Alt+D on macOS) on any Veil page — the landing page, an error page, or
-inside a proxied site — or add `?debug=1` to a URL. The overlay is also reachable from the error
-screen and from the floating toolbar's bug button.
+inside a proxied site — or add `?debug=1` to a URL, or click the bug button on the floating toolbar.
+It opens as a full DevTools: a tab strip across the whole window and nine panels underneath.
 
 It shows, without leaving the page:
 
@@ -59,6 +59,32 @@ It shows, without leaving the page:
 - the last dozen proxied requests, newest first, failures highlighted;
 - a **probe** box that pushes a URL through the proxy and reports status and timing;
 - **Copy report**, which puts all of the above (plus user agent and viewport) on the clipboard as JSON.
+
+### Tabs
+
+| Tab | What it does |
+| --- | --- |
+| **Console** | Everything the page logs, throws or fails to fetch, plus a JS prompt that runs in the page's own global scope |
+| **Elements** | Live DOM tree with disclosure triangles, a breadcrumb, element picker, editable attributes, and the CSS rules that actually match the selected node |
+| **Network** | Every request the page makes — wrapped `fetch`/`XHR` with real status and response headers, plus other resources from the Resource Timing API with size and duration |
+| **Resources** | `localStorage`, `sessionStorage` and the cookies the page can see, with delete and add |
+| **Sources** | Every script and stylesheet on the page, fetched through the proxy, with line numbers and find-in-file |
+| **Snippets** | Saved scripts that run in the page on demand (stored in `localStorage`, never sent anywhere) |
+| **Info** | Page, document, timing and shim facts |
+| **Veil** | The proxy-specific view: decoded target, the server's request record, trace id, patch status, probe |
+| **Settings** | Capture toggles, buffer clearing, reload/home, and the control that opens this panel |
+
+**Elements** is the interesting one. The tree expands a node at a time from the live DOM; clicking a
+node selects it and outlines it on the page, the breadcrumb walks back up, and the sidebar shows the
+attributes you can edit in place plus the stylesheets' rules that match — sorted by specificity, with
+the cross-origin sheets it could not read counted. Unchecking a declaration really removes it from
+that rule (or from `element.style`), so the page repaints and re-checking restores the exact value.
+The **Pick element** button dims the panel and takes the next click on the page.
+
+Two limits are worth stating plainly: cross-origin stylesheets cannot be read from script, so their
+rules are missing (DevTools reads them through the browser's own privileged access); and there is no
+JavaScript debugger — no breakpoints, stepping or call stack, because that needs a DevTools protocol
+client, not a script tag.
 
 ### Console
 
@@ -74,8 +100,9 @@ and failed `fetch` / `XMLHttpRequest` calls with their status.
 - the filter box narrows by text, and the tab badge counts errors;
 - the buffer holds the last 400 entries in memory only — nothing is sent anywhere.
 
-`window.__veilDebug` exposes `open`, `close`, `toggle`, `refresh`, `report()` and
-`console.{run, clear, entries}`, so the same console can be driven from outside the overlay.
+`window.__veilDebug` exposes `open`, `close`, `toggle`, `refresh`, `tab`, `report()`,
+`console.{run, clear, entries}`, `network.{entries, clear}` and `elements.{select, selected, rules}`,
+so the same panels can be driven from outside the overlay.
 
 `/__debug/state` returns the same data as JSON. It is same-origin and read-only apart from
 `?clear=1`, which empties the in-memory log; there is no response body, cookie value or credential
