@@ -2,7 +2,8 @@ import { createServer } from 'node:http';
 import { readFile } from 'node:fs/promises';
 import { extname, join, normalize } from 'node:path';
 import { fileURLToPath } from 'node:url';
-import { handleProxy, PROXY_PREFIX } from './lib/proxy.js';
+import { decodeTarget, handleProxy, PROXY_PREFIX } from './lib/proxy.js';
+import { encodeTarget } from './lib/rewrite.js';
 
 const PORT = Number(process.env.PORT || 3000);
 const HOST = process.env.HOST || '0.0.0.0';
@@ -22,9 +23,40 @@ const MIME = {
   '.webmanifest': 'application/manifest+json',
 };
 
-const server = createServer(async (req, res) => {
+// Single-page apps rewrite their own address bar. A site that replaces the URL
+// with a plain path (YouTube's "/results?search_query=…") lands here with its
+// later requests, and every one of them used to 404. The referer still points at
+// the proxied page they came from, so the request can be sent back inside the
+// proxy instead of failing.
+function recoverSpaRequest(req, url) {
+  const referer = req.headers.referer || req.headers.origin;
+  if (!referer) return null;
+  let ref;
   try {
-    const url = new URL(req.url, 'http://localhost');
+    ref = new URL(referer);
+  } catch {
+    return null;
+  }
+  if (ref.host !== req.headers.host) return null;
+  if (!ref.pathname.startsWith(PROXY_PREFIX)) return null;
+
+  const decoded = decodeTarget(ref.pathname.slice(PROXY_PREFIX.length));
+  if (!decoded) return null;
+
+  let origin;
+  try {
+    origin = new URL(decoded).origin;
+  } catch {
+    return null;
+  }
+
+  return PROXY_PREFIX + encodeTarget(origin + url.pathname + url.search);
+}
+
+const server = createServer(async (req, res) => {
+  let url;
+  try {
+    url = new URL(req.url, 'http://localhost');
 
     if (url.pathname.startsWith(PROXY_PREFIX)) {
       return await handleProxy(req, res);
@@ -52,6 +84,12 @@ const server = createServer(async (req, res) => {
     res.end(body);
   } catch (err) {
     if (err && err.code === 'ENOENT') {
+      const recovered = recoverSpaRequest(req, url);
+      if (recovered) {
+        const keepMethod = req.method === 'GET' || req.method === 'HEAD' ? 302 : 307;
+        res.writeHead(keepMethod, { location: recovered, 'cache-control': 'no-store' });
+        return res.end();
+      }
       res.writeHead(404, { 'content-type': 'text/plain; charset=utf-8' });
       return res.end('Not found');
     }
