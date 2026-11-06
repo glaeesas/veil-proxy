@@ -1,0 +1,137 @@
+<!doctype html>
+<html lang="en" data-theme="midnight">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Veil — browse through the veil</title>
+  <meta name="description" content="A fast, themed web proxy that rewrites pages server side. No iframes.">
+  <meta name="theme-color" content="#0b0713">
+  <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Cdefs%3E%3ClinearGradient id='g' x1='0' y1='0' x2='1' y2='1'%3E%3Cstop offset='0' stop-color='%23c084fc'/%3E%3Cstop offset='1' stop-color='%2322d3ee'/%3E%3C/linearGradient%3E%3C/defs%3E%3Crect width='32' height='32' rx='9' fill='url(%23g)'/%3E%3Ccircle cx='16' cy='16' r='7' fill='none' stroke='%230b0713' stroke-width='2.4'/%3E%3C/svg%3E">
+  <link rel="stylesheet" href="/styles.css">
+</head>
+<body>
+  <div class="aurora" aria-hidden="true">
+    <span class="blob blob-a"></span>
+    <span class="blob blob-b"></span>
+    <span class="blob blob-c"></span>
+  </div>
+  <div class="grain" aria-hidden="true"></div>
+
+  <header class="topbar">
+    <a class="brand" href="/">
+      <span class="brand-mark" aria-hidden="true">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.1" stroke-linecap="round">
+          <circle cx="12" cy="12" r="8"></circle>
+          <path d="M4 12h16"></path>
+        </svg>
+      </span>
+      <span class="brand-name">Veil</span>
+    </a>
+
+    <div class="topbar-actions">
+      <span class="pill status" id="status-pill">
+        <span class="dot"></span>
+        <span id="status-text">online</span>
+      </span>
+      <button class="icon-btn" id="theme-open" type="button" aria-haspopup="dialog" aria-controls="theme-panel">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round">
+          <circle cx="12" cy="12" r="3.2"></circle>
+          <path d="M19.4 15a1.7 1.7 0 0 0 .3 1.9l.1.1a2 2 0 1 1-2.8 2.8l-.1-.1a1.7 1.7 0 0 0-2.9 1.2 2 2 0 1 1-4 0 1.7 1.7 0 0 0-2.9-1.2l-.1.1a2 2 0 1 1-2.8-2.8l.1-.1A1.7 1.7 0 0 0 3 15a2 2 0 1 1 0-4 1.7 1.7 0 0 0 1.4-2.9l-.1-.1a2 2 0 1 1 2.8-2.8l.1.1A1.7 1.7 0 0 0 10 4a2 2 0 1 1 4 0 1.7 1.7 0 0 0 2.9 1.4l.1-.1a2 2 0 1 1 2.8 2.8l-.1.1A1.7 1.7 0 0 0 21 11a2 2 0 1 1 0 4 1.7 1.7 0 0 0-1.6 0z"></path>
+        </svg>
+        <span class="icon-btn-label">Theme</span>
+      </button>
+    </div>
+  </header>
+
+  <main class="stage">
+    <section class="hero">
+      <p class="eyebrow"><span class="spark"></span> server-rendered · no iframes</p>
+      <h1>Pass through the <em>veil</em>.</h1>
+      <p class="lede">
+        Veil fetches pages on the server, rewrites every link, stylesheet and script,
+        and hands you the real document. Nothing is boxed into a frame.
+      </p>
+
+      <form class="omnibox" id="omnibox" autocomplete="off">
+        <svg class="omnibox-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round">
+          <circle cx="11" cy="11" r="6.5"></circle>
+          <path d="M16 16l4.5 4.5"></path>
+        </svg>
+        <input id="address" name="q" type="text" spellcheck="false"
+               placeholder="Search the web or enter an address…"
+               aria-label="Address or search query">
+        <button class="go" type="submit" aria-label="Go">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
+            <path d="M5 12h13"></path><path d="M12.5 5.5L19 12l-6.5 6.5"></path>
+          </svg>
+        </button>
+      </form>
+
+      <div class="chips" id="quick-links">
+        <a class="chip" href="/__p/https://en.wikipedia.org/wiki/Special:Random">
+          <span class="chip-glyph">W</span> Wikipedia
+        </a>
+        <a class="chip" href="/__p/https://news.ycombinator.com">
+          <span class="chip-glyph">Y</span> Hacker News
+        </a>
+        <a class="chip" href="/__p/https://lite.cnn.com">
+          <span class="chip-glyph">C</span> CNN Lite
+        </a>
+        <a class="chip" href="/__p/https://old.reddit.com">
+          <span class="chip-glyph">R</span> Reddit
+        </a>
+        <a class="chip" href="/__p/https://github.com">
+          <span class="chip-glyph">G</span> GitHub
+        </a>
+        <a class="chip" href="/__p/https://text.npr.org">
+          <span class="chip-glyph">N</span> NPR Text
+        </a>
+      </div>
+
+      <div class="recent" id="recent" hidden>
+        <span class="recent-label">Recent</span>
+        <div class="recent-list" id="recent-list"></div>
+      </div>
+    </section>
+
+    <section class="features">
+      <article class="feature">
+        <span class="feature-icon">◇</span>
+        <h2>Rewritten, not embedded</h2>
+        <p>Links, forms, CSS <code>url()</code>, <code>srcset</code> and runtime fetch calls are all routed back through the proxy.</p>
+      </article>
+      <article class="feature">
+        <span class="feature-icon">◎</span>
+        <h2>Sessions carry over</h2>
+        <p>Cookies and redirects are re-scoped so logins on proxied sites keep working between page loads.</p>
+      </article>
+      <article class="feature">
+        <span class="feature-icon">✦</span>
+        <h2>Twelve themes</h2>
+        <p>Pick a palette from the theme drawer. Your choice is remembered per browser.</p>
+      </article>
+    </section>
+  </main>
+
+  <footer class="foot">
+    <span>Veil · runs on Node with zero dependencies</span>
+    <span class="foot-hint"><kbd>/</kbd> to focus · <kbd>Esc</kbd> to close</span>
+  </footer>
+
+  <div class="scrim" id="scrim" hidden></div>
+  <aside class="drawer" id="theme-panel" role="dialog" aria-label="Theme picker" aria-modal="true" hidden>
+    <div class="drawer-head">
+      <h2>Appearance</h2>
+      <button class="icon-btn ghost" id="theme-close" type="button" aria-label="Close theme picker">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round">
+          <path d="M6 6l12 12"></path><path d="M18 6L6 18"></path>
+        </svg>
+      </button>
+    </div>
+    <p class="drawer-sub">Twelve hand-tuned palettes. Pick one — it sticks.</p>
+    <div class="theme-grid" id="theme-grid"></div>
+  </aside>
+
+  <script src="/app.js" type="module"></script>
+</body>
+</html>
