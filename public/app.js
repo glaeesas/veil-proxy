@@ -1,3 +1,5 @@
+import { BareClient, BareMuxConnection } from './uv/bare-mux.mjs';
+
 const THEMES = [
   { id: 'midnight', name: 'Midnight', tag: 'dark', colors: ['#0a0712', '#a855f7', '#22d3ee'] },
   { id: 'obsidian', name: 'Obsidian', tag: 'dark', colors: ['#060607', '#d9f99d', '#a3e635'] },
@@ -47,6 +49,8 @@ const engineSelect = document.getElementById('engine-select');
 const titleInput = document.getElementById('title-input');
 const wispInput = document.getElementById('wisp-input');
 const brandName = document.getElementById('brand-name');
+const statusText = document.getElementById('status-text');
+const statusPill = document.getElementById('status-pill');
 
 /* --------------------------------------------------------------- storage */
 
@@ -63,29 +67,132 @@ function writeSetting(key, value) {
   try { localStorage.setItem(key, value); } catch { /* storage may be blocked */ }
 }
 
-/* ---------------------------------------------------- opaque proxy paths */
+/* ------------------------------------------------------------ transport */
 
-// Destinations are base64url-encoded into the path, so the address bar and the
-// browser's hover preview never spell out where a link goes.
-function encodeTarget(url) {
-  const bytes = new TextEncoder().encode(url);
-  let binary = '';
-  for (const byte of bytes) binary += String.fromCharCode(byte);
-  return btoa(binary).replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/, '');
+const UV = self.__uv$config;
+const UV_ROOT = new URL('./uv/', location.href).pathname;
+const APP_ROOT = location.pathname.startsWith('/')
+  ? location.pathname.replace(/[^/]*$/, '')
+  : '/';
+const SW_SCOPE = UV.prefix.replace(/service\/$/, '');
+
+const uvFile = (name) => new URL(UV_ROOT + name, location.href).pathname;
+
+function defaultWisp() {
+  const ws = location.protocol === 'https:' ? 'wss:' : 'ws:';
+  return `${ws}//${location.host}${APP_ROOT}wisp/`;
 }
 
-function proxyHref(url) {
-  return `/__p/${encodeTarget(url)}`;
+function wispUrl() {
+  const saved = readSetting(STORE.wisp, '').trim();
+  if (!saved) return defaultWisp();
+  if (/^wss?:\/\//i.test(saved)) return saved;
+  // Accept a bare host:port and assume the usual /wisp/ path.
+  const scheme = location.protocol === 'https:' ? 'wss:' : 'ws:';
+  const host = saved.replace(/^\/+/, '');
+  return `${scheme}//${host}${host.includes('/') ? '' : '/wisp/'}`;
 }
 
-// Static markup carries readable /__p/https://… links for source readability;
-// swap them for opaque ones before the user can hover anything.
-function encodeLinks() {
-  for (const link of document.querySelectorAll('a[href^="/__p/"]')) {
-    const raw = link.getAttribute('href').slice('/__p/'.length);
-    if (!/^https?:\/\//i.test(raw)) continue;
-    link.dataset.target = raw;
-    link.setAttribute('href', proxyHref(raw));
+function uvHref(target) {
+  return UV.prefix + UV.encodeUrl(target);
+}
+
+const conn = new BareMuxConnection(uvFile('bare-mux-worker.js'));
+
+function setStatus(state, detail) {
+  statusPill.dataset.state = state;
+  statusText.textContent = state;
+  statusPill.title = detail || '';
+}
+
+let connectedWisp = null;
+let connecting = null;
+
+// "Ready" has to mean a real round trip has succeeded. The service worker
+// borrows this page's stream, so opening a site while Epoxy is still warming up
+// produces the error page instead of the site.
+const PROBE = 'https://example.com/';
+let warmed = false;
+
+async function warmup() {
+  if (warmed) return;
+  const client = new BareClient(uvFile('bare-mux-worker.js'));
+  const controller = new AbortController();
+  const timer = setTimeout(() => controller.abort(), 15000);
+  try {
+    await client.fetch(PROBE, { method: 'HEAD', signal: controller.signal });
+    warmed = true;
+  } finally {
+    clearTimeout(timer);
+  }
+}
+
+async function connect(force) {
+  const wisp = wispUrl();
+  if (force) warmed = false;
+  if (!force && connectedWisp === wisp) return connectedWisp;
+  if (connecting) return connecting;
+  setStatus('connecting', wisp);
+  connecting = conn
+    .setTransport(uvFile('epoxy.mjs'), [{ wisp, wisp_v2: true }])
+    .then(async () => {
+      await warmup();
+      connectedWisp = wisp;
+      setStatus('ready', `Epoxy → ${wisp}`);
+      return wisp;
+    })
+    .catch((error) => {
+      console.error('[veil] transport failed:', error);
+      connectedWisp = null;
+      setStatus('offline', `${wisp} — ${error && error.message ? error.message : 'unreachable'}`);
+      throw error;
+    })
+    .finally(() => {
+      connecting = null;
+    });
+  return connecting;
+}
+
+let registration = null;
+
+async function ensureWorker() {
+  if (!('serviceWorker' in navigator)) throw new Error('this browser has no service workers');
+  if (!registration) {
+    // SW_SCOPE is a path, so the base has to be an absolute origin for URL().
+    const swUrl = new URL(`${SW_SCOPE === '/' ? '' : SW_SCOPE}sw.js`, location.origin).pathname;
+    registration = navigator.serviceWorker.register(swUrl, { scope: SW_SCOPE });
+  }
+  await registration;
+  await navigator.serviceWorker.ready;
+  if (!navigator.serviceWorker.controller) {
+    await new Promise((resolve) => {
+      const done = () => {
+        navigator.serviceWorker.removeEventListener('controllerchange', done);
+        resolve();
+      };
+      navigator.serviceWorker.addEventListener('controllerchange', done);
+      setTimeout(done, 3000);
+    });
+  }
+}
+
+async function open(target) {
+  remember(target);
+  try {
+    await Promise.all([ensureWorker(), connect()]);
+  } catch (error) {
+    // Opening anyway is better than a dead omnibox: the service worker shows
+    // its own error page naming the cause.
+    console.warn('[veil] opening without a ready transport:', error);
+  }
+  const url = uvHref(target);
+  // The service worker borrows the transport from an open Veil page, and a
+  // SharedWorker cannot be created from a page Ultraviolet is rewriting. So
+  // this tab stays as the carrier and the proxied site gets its own tab.
+  const opened = window.open(url, '_blank', 'noopener');
+  if (!opened) {
+    internalNav = true;
+    location.href = url;
   }
 }
 
@@ -205,9 +312,14 @@ function renderRecent() {
   for (const item of items) {
     const link = document.createElement('a');
     link.className = 'recent-item';
-    link.href = proxyHref(item);
-    link.dataset.target = item;
+    link.href = uvHref(item);
+    link.dataset.url = item;
     link.textContent = labelFor(item);
+    link.addEventListener('click', (event) => {
+      if (event.metaKey || event.ctrlKey || event.shiftKey || event.button !== 0) return;
+      event.preventDefault();
+      open(item);
+    });
     recentList.appendChild(link);
   }
 }
@@ -238,6 +350,7 @@ function buildSettings() {
   engineSelect.value = readSetting(STORE.engine, ENGINES[0].id);
   titleInput.value = readSetting(STORE.title, '');
   wispInput.value = readSetting(STORE.wisp, '');
+  wispInput.placeholder = defaultWisp();
   applyTitle(titleInput.value);
 
   engineSelect.addEventListener('change', () => writeSetting(STORE.engine, engineSelect.value));
@@ -246,6 +359,9 @@ function buildSettings() {
     applyTitle(titleInput.value);
   });
   wispInput.addEventListener('input', () => writeSetting(STORE.wisp, wispInput.value.trim()));
+  wispInput.addEventListener('change', () => {
+    connect(true).catch(() => { /* status pill reports it */ });
+  });
 }
 
 /* ------------------------------------------------------------- resolve */
@@ -268,9 +384,7 @@ omnibox.addEventListener('submit', (event) => {
     address.focus();
     return;
   }
-  remember(target);
-  internalNav = true;
-  location.href = proxyHref(target);
+  open(target);
 });
 
 /* ---------------------------------------------------------------- wiring */
@@ -294,24 +408,27 @@ guardBtn.addEventListener('click', () => {
   renderGuard();
 });
 
-document.querySelectorAll('.chip').forEach((chip) => {
-  chip.addEventListener('click', () => {
-    if (chip.dataset.target) remember(chip.dataset.target);
+// Links carry a real proxied href so they can be opened in a new tab by the
+// browser itself, but a plain click is routed through open() so this tab stays
+// alive as the transport carrier.
+for (const element of document.querySelectorAll('[data-url]')) {
+  element.setAttribute('href', uvHref(element.dataset.url));
+  element.addEventListener('click', (event) => {
+    if (event.metaKey || event.ctrlKey || event.shiftKey || event.button !== 0) return;
+    event.preventDefault();
+    open(element.dataset.url);
   });
-});
+}
 
-fetch('/healthz')
-  .then((response) => {
-    document.getElementById('status-text').textContent = response.ok ? 'online' : 'degraded';
-  })
-  .catch(() => {
-    document.getElementById('status-text').textContent = 'offline';
-  });
-
-encodeLinks();
 buildThemeGrid();
 buildSettings();
 applyTheme(readSetting(STORE.theme, 'midnight'), false);
 renderGuard();
 renderRecent();
 address.focus({ preventScroll: true });
+
+// Warm the service worker and the transport so the first navigation is quick.
+ensureWorker().then(() => connect()).catch((error) => {
+  console.warn('[veil] not ready:', error);
+  setStatus('offline', error && error.message ? error.message : 'service worker unavailable');
+});
