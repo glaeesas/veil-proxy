@@ -1,17 +1,33 @@
 {
   "name": "veil-proxy",
-  "version": "1.0.0",
+  "version": "2.0.0",
   "private": true,
-  "description": "Veil — a URL-rewriting web proxy with a themed UI. No iframes, no dependencies.",
+  "description": "Veil — a static, themed web proxy for GitHub Pages. Ultraviolet rewriting over an Epoxy Wisp transport. No iframes.",
   "type": "module",
   "main": "server.js",
   "engines": {
     "node": ">=18"
   },
   "scripts": {
+    "build": "node scripts/build.mjs",
     "start": "node server.js",
-    "dev": "node --watch server.js"
+    "dev": "node --watch server.js",
+    "prestart": "npm run build"
   },
-  "keywords": ["proxy", "web-proxy", "node", "codespaces"],
-  "license": "MIT"
+  "keywords": [
+    "proxy",
+    "web-proxy",
+    "ultraviolet",
+    "epoxy",
+    "wisp",
+    "github-pages"
+  ],
+  "license": "MIT",
+  "dependencies": {
+    "@mercuryworkshop/bare-mux": "^2.1.9",
+    "@mercuryworkshop/epoxy-tls": "^2.1.20-1",
+    "@mercuryworkshop/epoxy-transport": "2.1.29",
+    "@mercuryworkshop/wisp-js": "^0.5.3",
+    "@titaniumnetwork-dev/ultraviolet": "^3.2.10"
+  }
 }
