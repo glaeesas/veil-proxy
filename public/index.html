@@ -11,3 +11,168 @@
   <link rel="stylesheet" href="./settings.css">
 </head>
 <body>
+  <div class="aurora" aria-hidden="true">
+    <span class="blob blob-a"></span>
+    <span class="blob blob-b"></span>
+    <span class="blob blob-c"></span>
+  </div>
+  <div class="grain" aria-hidden="true"></div>
+
+  <header class="topbar">
+    <a class="brand" href="/">
+      <span class="brand-mark" aria-hidden="true">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.1" stroke-linecap="round">
+          <circle cx="12" cy="12" r="8"></circle>
+          <path d="M4 12h16"></path>
+        </svg>
+      </span>
+      <span class="brand-name" id="brand-name">Veil</span>
+    </a>
+
+    <div class="topbar-actions">
+      <span class="pill status" id="status-pill">
+        <span class="dot"></span>
+        <span id="status-text">online</span>
+      </span>
+      <button class="icon-btn" id="theme-open" type="button" aria-haspopup="dialog" aria-controls="theme-panel">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round">
+          <circle cx="12" cy="12" r="3.2"></circle>
+          <path d="M19.4 15a1.7 1.7 0 0 0 .3 1.9l.1.1a2 2 0 1 1-2.8 2.8l-.1-.1a1.7 1.7 0 0 0-2.9 1.2 2 2 0 1 1-4 0 1.7 1.7 0 0 0-2.9-1.2l-.1.1a2 2 0 1 1-2.8-2.8l.1-.1A1.7 1.7 0 0 0 3 15a2 2 0 1 1 0-4 1.7 1.7 0 0 0 1.4-2.9l-.1-.1a2 2 0 1 1 2.8-2.8l.1.1A1.7 1.7 0 0 0 10 4a2 2 0 1 1 4 0 1.7 1.7 0 0 0 2.9 1.4l.1-.1a2 2 0 1 1 2.8 2.8l-.1.1A1.7 1.7 0 0 0 21 11a2 2 0 1 1 0 4 1.7 1.7 0 0 0-1.6 0z"></path>
+        </svg>
+        <span class="icon-btn-label">Settings</span>
+      </button>
+    </div>
+  </header>
+
+  <main class="stage">
+    <section class="hero">
+      <p class="eyebrow"><span class="spark"></span> static build · Epoxy + Wisp</p>
+      <h1>Pass through the <em>veil</em>.</h1>
+      <p class="lede">
+        Veil is a static site: your browser opens a Wisp stream through Epoxy,
+        Ultraviolet rewrites every link, stylesheet and script, and you get the real
+        document. Nothing is boxed into a frame.
+      </p>
+
+      <form class="omnibox" id="omnibox" autocomplete="off">
+        <svg class="omnibox-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round">
+          <circle cx="11" cy="11" r="6.5"></circle>
+          <path d="M16 16l4.5 4.5"></path>
+        </svg>
+        <input id="address" name="q" type="text" spellcheck="false"
+               placeholder="Search the web or enter an address…"
+               aria-label="Address or search query">
+        <button class="go" type="submit" aria-label="Go">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
+            <path d="M5 12h13"></path><path d="M12.5 5.5L19 12l-6.5 6.5"></path>
+          </svg>
+        </button>
+      </form>
+
+      <div class="chips" id="quick-links">
+        <a class="chip" href="#" data-url="https://en.wikipedia.org/wiki/Special:Random">
+          <span class="chip-glyph">W</span> Wikipedia
+        </a>
+        <a class="chip" href="#" data-url="https://www.youtube.com">
+          <span class="chip-glyph">▸</span> YouTube
+        </a>
+        <a class="chip" href="#" data-url="https://news.ycombinator.com">
+          <span class="chip-glyph">Y</span> Hacker News
+        </a>
+        <a class="chip" href="#" data-url="https://lite.cnn.com">
+          <span class="chip-glyph">C</span> CNN Lite
+        </a>
+        <a class="chip" href="#" data-url="https://old.reddit.com">
+          <span class="chip-glyph">R</span> Reddit
+        </a>
+        <a class="chip" href="#" data-url="https://github.com">
+          <span class="chip-glyph">G</span> GitHub
+        </a>
+        <a class="chip" href="#" data-url="https://text.npr.org">
+          <span class="chip-glyph">N</span> NPR Text
+        </a>
+      </div>
+
+      <div class="recent" id="recent" hidden>
+        <span class="recent-label">Recent</span>
+        <div class="recent-list" id="recent-list"></div>
+      </div>
+    </section>
+
+    <section class="features">
+      <article class="feature">
+        <span class="feature-icon">◇</span>
+        <h2>Rewritten, not embedded</h2>
+        <p>Links, forms, CSS <code>url()</code>, <code>srcset</code> and runtime fetch calls are all routed back through the proxy.</p>
+      </article>
+      <article class="feature">
+        <span class="feature-icon">◎</span>
+        <h2>Sessions carry over</h2>
+        <p>Cookies and redirects are re-scoped in the service worker, so logins on proxied sites keep working between page loads.</p>
+      </article>
+      <article class="feature">
+        <span class="feature-icon">✦</span>
+        <h2>Twelve themes</h2>
+        <p>Pick a palette from the theme drawer. Your choice is remembered per browser.</p>
+      </article>
+    </section>
+  </main>
+
+  <footer class="foot">
+    <span>Veil · static on GitHub Pages · Epoxy + Wisp</span>
+    <span class="foot-hint"><kbd>/</kbd> to focus · <kbd>Esc</kbd> to close · <kbd>Ctrl</kbd>+<kbd>Alt</kbd>+<kbd>D</kbd> debug</span>
+  </footer>
+
+  <div class="scrim" id="scrim" hidden></div>
+  <aside class="drawer" id="theme-panel" role="dialog" aria-label="Settings" aria-modal="true" hidden>
+    <div class="drawer-head">
+      <h2>Settings</h2>
+      <button class="icon-btn ghost" id="theme-close" type="button" aria-label="Close settings">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round">
+          <path d="M6 6l12 12"></path><path d="M18 6L6 18"></path>
+        </svg>
+      </button>
+    </div>
+
+    <section class="setting-group">
+      <h3>Theme</h3>
+      <p class="drawer-sub">Twelve hand-tuned palettes. Pick one — it sticks.</p>
+      <div class="theme-grid" id="theme-grid"></div>
+    </section>
+
+    <section class="setting-group">
+      <h3>Search engine</h3>
+      <select class="field" id="engine-select" aria-label="Search engine"></select>
+      <p class="hint">Used when you type a query instead of an address.</p>
+    </section>
+
+    <section class="setting-group">
+      <h3>Title</h3>
+      <input class="field" id="title-input" type="text" spellcheck="false"
+             placeholder="Veil — browse through the veil" aria-label="Page title">
+      <p class="hint">Sets the tab title and the name in the top bar.</p>
+    </section>
+
+    <section class="setting-group">
+      <h3>Wisp server</h3>
+      <input class="field" id="wisp-input" type="text" spellcheck="false"
+             placeholder="wss://wisp.example.com/" aria-label="Wisp server">
+      <p class="hint">Your own Wisp server — this is the only backend. Leave empty to use the host you loaded Veil from. Keep this tab open: it carries the transport for the proxied tabs.</p>
+    </section>
+
+    <section class="setting-group">
+      <h3>Guard</h3>
+      <button class="chip" id="guard-toggle" type="button" aria-pressed="true"
+              aria-label="Toggle confirm before closing">
+        <span class="chip-glyph">◈</span> Confirm before closing: <strong id="guard-state">On</strong>
+      </button>
+    </section>
+  </aside>
+
+  <script src="./veil-config.js"></script>
+  <script src="./uv/uv.bundle.js"></script>
+  <script src="./uv/uv.config.js"></script>
+  <script src="./debug.js" defer></script>
+  <script src="./app.js" type="module"></script>
+</body>
+</html>
