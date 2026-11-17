@@ -126,7 +126,7 @@ Ultraviolet's job now, and the server only carries sockets. The hand-written deb
   original origin (DRM video, some auth flows) behave differently or fail.
 - Google sign-in and bot-guarded APIs reject proxied traffic.
 - The Wisp server sees the plaintext of every stream it carries. Run your own.
-- Ultraviolet rewrites markup; a site that assembles URLs from runtime fragments can still
+- Ultraviolet rewrites markup; a site that assembles URLs at runtime from fragments can still
   escape. That is inherent to rewriting, not a tuning problem.
 
 ## License
