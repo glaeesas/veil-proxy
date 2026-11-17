@@ -79,6 +79,10 @@ const SW_SCOPE = UV.prefix.replace(/service\/$/, '');
 const uvFile = (name) => new URL(UV_ROOT + name, location.href).pathname;
 
 function defaultWisp() {
+  // A hosted build records its Wisp server at build time (GitHub Pages cannot
+  // serve the socket). Settings still wins over this.
+  const preset = typeof window !== 'undefined' && window.__VEIL_WISP_DEFAULT;
+  if (preset) return String(preset).trim();
   const ws = location.protocol === 'https:' ? 'wss:' : 'ws:';
   return `${ws}//${location.host}${APP_ROOT}wisp/`;
 }
