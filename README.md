@@ -5,6 +5,9 @@ in a service worker (Ultraviolet); the TLS/HTTP work is carried by **Epoxy** ove
 protocol to a small server you run. No iframes anywhere, no per-request Node proxy, and no build
 output checked in.
 
+- **Site (GitHub Pages):** https://glaeesas.github.io/veil-proxy/
+- **Backend:** your own Wisp server — Pages cannot host the socket, so set its URL in Settings.
+
 ```
 npm install
 npm run build      # vendors Ultraviolet + Epoxy into public/uv/
@@ -45,8 +48,9 @@ build works at a domain root and at `/<repo>/` on Pages).
 
 The workflow in `.github/workflows/pages.yml` builds and publishes on every push to `main`.
 
-1. Repo → **Settings → Pages → Build and deployment → Source: GitHub Actions**.
-2. Push to `main`. The site appears at `https://<user>.github.io/<repo>/`.
+1. Repo → **Settings → Pages → Build and deployment → Source: GitHub Actions** (already set for this
+   repo).
+2. Push to `main`. The site appears at https://glaeesas.github.io/veil-proxy/.
 3. Run a Wisp server somewhere (below) and paste its URL into **Settings → Wisp server**:
    `wss://wisp.example.com/wisp/`. Pages itself cannot host the socket.
 
