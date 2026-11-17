@@ -24,6 +24,10 @@ jobs:
           node-version: 20
       - run: npm install --no-audit --no-fund
       - run: npm run build
+        env:
+          # Repo → Settings → Secrets and variables → Actions → Variables
+          # e.g. wss://veil-wisp.onrender.com/wisp/  (Pages cannot host the socket)
+          VEIL_WISP_URL: ${{ vars.VEIL_WISP_URL }}
       - run: touch public/.nojekyll
       - uses: actions/configure-pages@v5
       - uses: actions/upload-pages-artifact@v3
