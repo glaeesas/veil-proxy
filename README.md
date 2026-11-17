@@ -5,9 +5,6 @@ in a service worker (Ultraviolet); the TLS/HTTP work is carried by **Epoxy** ove
 protocol to a small server you run. No iframes anywhere, no per-request Node proxy, and no build
 output checked in.
 
-- **Site (GitHub Pages):** https://glaeesas.github.io/veil-proxy/
-- **Backend:** your own Wisp server — Pages cannot host the socket, so set its URL in Settings.
-
 ```
 npm install
 npm run build      # vendors Ultraviolet + Epoxy into public/uv/
@@ -48,11 +45,11 @@ build works at a domain root and at `/<repo>/` on Pages).
 
 The workflow in `.github/workflows/pages.yml` builds and publishes on every push to `main`.
 
-1. Repo → **Settings → Pages → Build and deployment → Source: GitHub Actions** (already set for this
-   repo).
-2. Push to `main`. The site appears at https://glaeesas.github.io/veil-proxy/.
+1. Repo → **Settings → Pages → Build and deployment → Source: GitHub Actions**.
+2. Push to `main`. The site appears at `https://<user>.github.io/<repo>/`.
 3. Run a Wisp server somewhere (below) and paste its URL into **Settings → Wisp server**:
-   `wss://wisp.example.com/wisp/`. Pages itself cannot host the socket.
+   `wss://wisp.example.com/wisp/`. Pages itself cannot host the socket — or set the
+   `VEIL_WISP_URL` repository variable so the built site already points at it.
 
 Nothing needs to be committed from `public/uv/` or `public/sw.js`; they are generated (and ignored).
 
@@ -71,10 +68,24 @@ server.on('upgrade', (req, socket, head) => {
 That is the only backend Veil needs. It has no HTML knowledge, no rewriting rules and no per-site
 configuration — it just opens streams as the Wisp protocol asks.
 
-**Docker / Render / a VPS.** `Dockerfile` and `render.yaml` are set up for this: the image installs
-dependencies, runs the vendoring build, and starts `server.js`. Put it behind TLS (Render gives you
-`https://…onrender.com`, and the matching `wss://` URL is what you paste into Settings). Any host
-that can run a WebSocket works: Fly.io, Railway, Koyeb, a small VPS with Caddy in front.
+**Render (one click).** `render.yaml` is a blueprint for the `Dockerfile`: the image installs
+dependencies, runs the vendoring build, and starts `server.js` on Render's `$PORT`.
+
+1. Open <https://render.com/deploy?repo=https://github.com/glaeesas/veil-proxy> and apply the
+   blueprint (free plan, `oregon`). No environment variables to fill in.
+2. Wait for the first build, then copy the service URL. The Wisp endpoint is
+   `wss://<service>.onrender.com/wisp/` — `https://<service>.onrender.com/healthz` should say `ok`
+   and `…/__debug/state` shows `wisp.upgrades` climbing as clients connect.
+3. Make that URL the site's default: repo → **Settings → Secrets and variables → Actions →
+   Variables → New repository variable**, name `VEIL_WISP_URL`, value
+   `wss://<service>.onrender.com/wisp/`. `scripts/build.mjs` bakes it into `public/veil-config.js`,
+   so pressing Enter works without touching Settings. Re-run the Pages workflow (or push) to pick
+   it up. Settings → **Wisp server** still overrides it per browser.
+
+Render's free plan sleeps after idle, so the first connection of the day waits for a cold start
+(a few seconds to ~30s); the status pill shows `connecting` until the socket is up. Any other host
+that can run a WebSocket works the same way — Fly.io, Railway, Koyeb, or a small VPS with Caddy in
+front; only the URL in `VEIL_WISP_URL` changes.
 
 Wisp speaks raw TCP from your server, so it is worth restricting: keep it on a host you control, and
 do not expose it publicly without rate limiting or auth in front.
@@ -115,7 +126,7 @@ Ultraviolet's job now, and the server only carries sockets. The hand-written deb
   original origin (DRM video, some auth flows) behave differently or fail.
 - Google sign-in and bot-guarded APIs reject proxied traffic.
 - The Wisp server sees the plaintext of every stream it carries. Run your own.
-- Ultraviolet rewrites markup; a site that assembles URLs at runtime from fragments can still
+- Ultraviolet rewrites markup; a site that assembles URLs from runtime fragments can still
   escape. That is inherent to rewriting, not a tuning problem.
 
 ## License
